@@ -64,8 +64,52 @@ describe("character data", () => {
     expect(Object.keys(TAINTED_CHARACTER_UNLOCKS).length).toBe(17);
   });
 
-  it("has 15 characters in completion marks", () => {
-    expect(Object.keys(COMPLETION_MARKS).length).toBe(15);
+  it("has 17 characters in completion marks", () => {
+    expect(Object.keys(COMPLETION_MARKS).length).toBe(17);
+  });
+});
+
+describe("semantic correctness", () => {
+  it("base character unlock IDs resolve to achievements matching the character name", () => {
+    // Normalise "&" vs "and" for comparison
+    const normalise = (s: string) => s.toLowerCase().replace(/&/g, "and");
+    for (const [idStr, name] of Object.entries(BASE_CHARACTER_UNLOCKS)) {
+      const ach = getAchievement(Number(idStr));
+      expect(
+        normalise(ach.name).includes(normalise(name)) ||
+          normalise(ach.name) === normalise(name),
+        `Achievement ${idStr} ("${ach.name}") should match character "${name}"`,
+      ).toBe(true);
+    }
+  });
+
+  it("tainted character unlock IDs resolve to achievements mentioning Red Key and Home", () => {
+    for (const [idStr, name] of Object.entries(TAINTED_CHARACTER_UNLOCKS)) {
+      const ach = getAchievement(Number(idStr));
+      const text = (ach.inGameDescription + " " + ach.unlockDescription).toLowerCase();
+      expect(
+        text.includes("red key") && text.includes("home"),
+        `Tainted unlock ${idStr} ("${name}") should mention Red Key and Home, got: "${ach.inGameDescription}" / "${ach.unlockDescription}"`,
+      ).toBe(true);
+    }
+  });
+
+  it("spot-check: Isaac's Satan mark is achievement 43 (Mom's Knife)", () => {
+    const ach = getAchievement(43);
+    expect(ach.unlockDescription.toLowerCase()).toContain("satan");
+    expect(ach.unlockDescription.toLowerCase()).toContain("isaac");
+  });
+
+  it("spot-check: Magdalene's Isaac mark is achievement 20 (A Cross)", () => {
+    const ach = getAchievement(20);
+    expect(ach.unlockDescription.toLowerCase()).toContain("isaac");
+    expect(ach.unlockDescription.toLowerCase()).toContain("magdalene");
+  });
+
+  it("spot-check: Azazel's Boss Rush mark is achievement 9 (The Nail)", () => {
+    const ach = getAchievement(9);
+    expect(ach.unlockDescription.toLowerCase()).toContain("boss rush");
+    expect(ach.unlockDescription.toLowerCase()).toContain("azazel");
   });
 });
 

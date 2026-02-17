@@ -18,7 +18,7 @@ describe("integration: full pipeline with sample save", () => {
     expect(result.totalAchievements).toBe(637);
 
     // Completion grid
-    expect(result.completionGrid.length).toBe(15);
+    expect(result.completionGrid.length).toBe(17);
 
     // Recommendations generated
     expect(result.recommendations.length).toBeGreaterThan(0);

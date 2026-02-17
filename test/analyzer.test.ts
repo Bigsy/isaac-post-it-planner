@@ -71,10 +71,10 @@ describe("analyze (full pipeline)", () => {
 });
 
 describe("analyzeCompletionMarks", () => {
-  it("returns 15 characters", () => {
+  it("returns 17 characters", () => {
     const unlocked = getUnlockedIds(loadSample().achievements);
     const grid = analyzeCompletionMarks(unlocked);
-    expect(grid.length).toBe(15);
+    expect(grid.length).toBe(17);
   });
 
   it("Isaac has some marks done in sample save", () => {
