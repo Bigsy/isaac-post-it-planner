@@ -1,0 +1,15 @@
+# Local planning notes
+plan*.md
+PLAN*.md
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/bundle.js
+dist/bundle.js.map
+
+# IDE
+.idea/
+.clj-kondo/
+.lsp/

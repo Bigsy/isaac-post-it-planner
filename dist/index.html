@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Isaac Post-it Planner</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Isaac Post-it Planner</h1>
+    <p class="subtitle">Drop your save file to see what to focus on next</p>
+  </header>
+
+  <main>
+    <section id="upload-section">
+      <div id="drop-zone">
+        <div class="drop-icon">&#128193;</div>
+        <p>Drag &amp; drop your <code>rep+persistentgamedata1.dat</code> here</p>
+        <p class="hint">or click to browse</p>
+        <input type="file" id="file-input" accept=".dat" hidden>
+      </div>
+      <p class="file-path-hint">
+        Default location: <code>C:\Users\{you}\Documents\My Games\Binding of Isaac Repentance\</code>
+      </p>
+    </section>
+
+    <div id="error" class="hidden"></div>
+
+    <div id="results" class="hidden">
+      <section>
+        <h2>Overview</h2>
+        <div id="overview"></div>
+      </section>
+
+      <section>
+        <h2>Recommendations</h2>
+        <div id="recommendations"></div>
+      </section>
+
+      <section>
+        <h2>Completion Marks</h2>
+        <div id="completion-grid"></div>
+      </section>
+
+      <section>
+        <h2>Characters</h2>
+        <div id="characters"></div>
+      </section>
+
+      <section>
+        <h2>Challenges</h2>
+        <div id="challenges"></div>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    <p>All data stays in your browser. Nothing is uploaded.</p>
+  </footer>
+
+  <script src="bundle.js"></script>
+</body>
+</html>
