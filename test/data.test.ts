@@ -67,6 +67,21 @@ describe("character data", () => {
   it("has 17 characters in completion marks", () => {
     expect(Object.keys(COMPLETION_MARKS).length).toBe(17);
   });
+
+  it("completion mark IDs are unique per boss across characters", () => {
+    for (let i = 0; i < BOSS_NAMES.length; i++) {
+      const seen = new Map<number, string>();
+      for (const [char, marks] of Object.entries(COMPLETION_MARKS)) {
+        const id = marks[i];
+        if (id === null) continue;
+        expect(
+          seen.has(id),
+          `Boss "${BOSS_NAMES[i]}": achievement ${id} used by both ${seen.get(id)} and ${char}`,
+        ).toBe(false);
+        seen.set(id, char);
+      }
+    }
+  });
 });
 
 describe("semantic correctness", () => {
