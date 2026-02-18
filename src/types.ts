@@ -81,24 +81,19 @@ export interface CharacterUnlock {
   unlockDescription: string;
 }
 
-/** Counter stats */
+/** Counter stats parsed from the save file's counters chunk. */
 export interface CounterStats {
   momKills: number;
   deaths: number;
-  itemsCollected: number;
   momsHeartKills: number;
-  satanKills: number;
-  isaacKills: number;
-  blueBabyKills: number;
-  theLambKills: number;
-  megaSatanKills: number;
-  bossRushCompletions: number;
-  hushCompletions: number;
-  deliriumKills: number;
-  motherKills: number;
-  beastKills: number;
-  ultraGreedKills: number;
-  ultraGreedierKills: number;
+  rocksDestroyed: number;
+  tintedRocksDestroyed: number;
+  poopDestroyed: number;
+  shopkeeperKills: number;
+  donationCoins: number;
+  edenTokens: number;
+  winStreak: number;
+  bestStreak: number;
 }
 
 /** Full analysis result passed to UI */

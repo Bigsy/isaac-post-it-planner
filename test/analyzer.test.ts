@@ -28,11 +28,10 @@ function loadSample() {
 
 function emptyCounters(): CounterStats {
   return {
-    momKills: 0, deaths: 0, itemsCollected: 0, momsHeartKills: 0,
-    satanKills: 0, isaacKills: 0, blueBabyKills: 0, theLambKills: 0,
-    megaSatanKills: 0, bossRushCompletions: 0, hushCompletions: 0,
-    deliriumKills: 0, motherKills: 0, beastKills: 0,
-    ultraGreedKills: 0, ultraGreedierKills: 0,
+    momKills: 0, deaths: 0, momsHeartKills: 0,
+    rocksDestroyed: 0, tintedRocksDestroyed: 0, poopDestroyed: 0,
+    shopkeeperKills: 0, donationCoins: 0,
+    edenTokens: 0, winStreak: 0, bestStreak: 0,
   };
 }
 
@@ -143,8 +142,8 @@ describe("evaluateProgressionGates", () => {
     const unlocked = getUnlockedIds(save.achievements);
     const stats: CounterStats = {
       ...emptyCounters(),
-      momKills: save.counters[0] ?? 0,
-      momsHeartKills: save.counters[3] ?? 0,
+      momKills: save.counters[1] ?? 0,
+      momsHeartKills: save.counters[1] ?? 0,
     };
     const recs = evaluateProgressionGates(unlocked, stats);
     // Should have some gates remaining (113/637 is early game)
@@ -289,8 +288,8 @@ describe("generateLaneRecommendations (integration)", () => {
     const unlocked = getUnlockedIds(save.achievements);
     const stats: CounterStats = {
       ...emptyCounters(),
-      momKills: save.counters[0] ?? 0,
-      momsHeartKills: save.counters[3] ?? 0,
+      momKills: save.counters[1] ?? 0,
+      momsHeartKills: save.counters[1] ?? 0,
     };
     const baseGrid = analyzeCompletionMarks(unlocked);
     const taintedGrid = analyzeTaintedCompletionMarks(unlocked);
@@ -308,8 +307,8 @@ describe("generateLaneRecommendations (integration)", () => {
     const unlocked = getUnlockedIds(save.achievements);
     const stats: CounterStats = {
       ...emptyCounters(),
-      momKills: save.counters[0] ?? 0,
-      momsHeartKills: save.counters[3] ?? 0,
+      momKills: save.counters[1] ?? 0,
+      momsHeartKills: save.counters[1] ?? 0,
     };
     const baseGrid = analyzeCompletionMarks(unlocked);
     const taintedGrid = analyzeTaintedCompletionMarks(unlocked);
@@ -330,7 +329,7 @@ describe("generateLaneRecommendations (integration)", () => {
     const unlocked = getUnlockedIds(save.achievements);
     const stats: CounterStats = {
       ...emptyCounters(),
-      momKills: save.counters[0] ?? 0,
+      momKills: save.counters[1] ?? 0,
     };
     const baseGrid = analyzeCompletionMarks(unlocked);
     const taintedGrid = analyzeTaintedCompletionMarks(unlocked);

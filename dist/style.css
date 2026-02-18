@@ -305,6 +305,18 @@ tr.complete .char-name { color: var(--green); }
 
 .empty { color: var(--text-dim); font-style: italic; }
 
+/* Wiki links */
+.wiki-link {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+}
+.wiki-link:hover {
+  text-decoration-style: solid;
+  filter: brightness(1.2);
+}
+
 /* Footer */
 footer {
   text-align: center;

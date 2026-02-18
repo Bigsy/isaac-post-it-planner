@@ -6,6 +6,15 @@ import type {
   LaneRecommendation,
   Lane,
 } from "./types";
+import { BOSS_SHORT_NAMES } from "./data/characters";
+import { TAINTED_BOSS_SHORT_NAMES } from "./data/tainted-marks";
+import {
+  bossWikiUrl,
+  characterWikiUrl,
+  challengeWikiUrl,
+  rewardWikiUrl,
+  wikiLink,
+} from "./data/wiki";
 
 function $(id: string): HTMLElement {
   return document.getElementById(id)!;
@@ -27,24 +36,48 @@ function renderOverview(result: AnalysisResult): void {
         <div class="progress-bar"><div class="progress-fill" style="width:${pct(result.unlockedCount, result.totalAchievements)}%"></div></div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">${s.deaths}</div>
-        <div class="stat-label">Deaths</div>
+        <div class="stat-value">${s.momKills}</div>
+        <div class="stat-label">Mom Kills</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">${s.itemsCollected}</div>
-        <div class="stat-label">Items Collected</div>
+        <div class="stat-value">${s.deaths}</div>
+        <div class="stat-label">Deaths</div>
       </div>
       <div class="stat-card">
         <div class="stat-value">${completedChallenges}/45</div>
         <div class="stat-label">Challenges</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">${s.momKills}</div>
-        <div class="stat-label">Mom Kills</div>
+        <div class="stat-value">${s.winStreak}</div>
+        <div class="stat-label">Win Streak</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">${s.momsHeartKills}</div>
-        <div class="stat-label">Mom's Heart</div>
+        <div class="stat-value">${s.bestStreak}</div>
+        <div class="stat-label">Best Streak</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">${s.edenTokens}</div>
+        <div class="stat-label">Eden Tokens</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">${s.rocksDestroyed.toLocaleString()}</div>
+        <div class="stat-label">Rocks Destroyed</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">${s.tintedRocksDestroyed}</div>
+        <div class="stat-label">Tinted Rocks</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">${s.poopDestroyed.toLocaleString()}</div>
+        <div class="stat-label">Poop Destroyed</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">${s.shopkeeperKills}</div>
+        <div class="stat-label">Shopkeepers Killed</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">${s.donationCoins}</div>
+        <div class="stat-label">Donation Coins</div>
       </div>
     </div>
   `;
@@ -60,19 +93,14 @@ function markCell(mark: CharacterProgress["marks"][0]): string {
 }
 
 function renderCompletionGrid(grid: CharacterProgress[]): void {
-  const bossHeaders = [
-    "Heart", "Isaac", "Satan", "BB", "Lamb",
-    "Rush", "Hush", "MSat", "Deli", "Mom2",
-    "Beast", "Greed", "Grd+",
-  ];
-
-  const headerRow = `<tr><th>Character</th>${bossHeaders.map((b) => `<th>${b}</th>`).join("")}<th>Done</th></tr>`;
+  const headerRow = `<tr><th>Character</th>${BOSS_SHORT_NAMES.map((b) => `<th>${wikiLink(bossWikiUrl(b), b)}</th>`).join("")}<th>Done</th></tr>`;
 
   const rows = grid.map((char) => {
     const nearComplete = char.total - char.done > 0 && char.total - char.done <= 4 && char.done > 0;
     const rowClass = nearComplete ? "near-complete" : char.done === char.total && char.total > 0 ? "complete" : "";
     const cells = char.marks.map(markCell).join("");
-    return `<tr class="${rowClass}"><td class="char-name">${char.name}</td>${cells}<td class="done-count">${char.done}/${char.total}</td></tr>`;
+    const charLink = wikiLink(characterWikiUrl(char.name), char.name);
+    return `<tr class="${rowClass}"><td class="char-name">${charLink}</td>${cells}<td class="done-count">${char.done}/${char.total}</td></tr>`;
   });
 
   $("completion-grid").innerHTML = `
@@ -84,9 +112,7 @@ function renderCompletionGrid(grid: CharacterProgress[]): void {
 }
 
 function renderTaintedCompletionGrid(grid: TaintedCharacterProgress[]): void {
-  const bossHeaders = ["Main", "Mom2", "Beast", "Grd+", "Deli", "MSat", "H+BR"];
-
-  const headerRow = `<tr><th>Character</th>${bossHeaders.map((b) => `<th>${b}</th>`).join("")}<th>Done</th></tr>`;
+  const headerRow = `<tr><th>Character</th>${TAINTED_BOSS_SHORT_NAMES.map((b) => `<th>${wikiLink(bossWikiUrl(b), b)}</th>`).join("")}<th>Done</th></tr>`;
 
   const rows = grid.map((char) => {
     const nearComplete = char.total - char.done > 0 && char.total - char.done <= 3 && char.done > 0;
@@ -98,7 +124,8 @@ function renderTaintedCompletionGrid(grid: TaintedCharacterProgress[]): void {
           : `<td class="mark missing" title="Achievement #${m.achievementId}">&#10007;</td>`,
       )
       .join("");
-    return `<tr class="${rowClass}"><td class="char-name">${char.name}</td>${cells}<td class="done-count">${char.done}/${char.total}</td></tr>`;
+    const charLink = wikiLink(characterWikiUrl(char.name), char.name);
+    return `<tr class="${rowClass}"><td class="char-name">${charLink}</td>${cells}<td class="done-count">${char.done}/${char.total}</td></tr>`;
   });
 
   const container = document.getElementById("tainted-completion-grid");
@@ -217,9 +244,12 @@ function renderChallenges(challenges: ChallengeInfo[]): void {
   const renderList = (list: ChallengeInfo[], done: boolean) =>
     list
       .map((c) => {
-        const reward = c.reward ? `<span class="reward">Unlocks: ${c.reward}</span>` : "";
+        const rewardHtml = c.reward
+          ? `<span class="reward">Unlocks: ${wikiLink(rewardWikiUrl(c.reward), c.reward)}</span>`
+          : "";
+        const nameLink = wikiLink(challengeWikiUrl(c.name), c.name);
         const cls = done ? "challenge done" : "challenge";
-        return `<div class="${cls}"><span class="ch-id">#${c.id}</span> ${c.name} ${reward}</div>`;
+        return `<div class="${cls}"><span class="ch-id">#${c.id}</span> ${nameLink} ${rewardHtml}</div>`;
       })
       .join("");
 
@@ -237,8 +267,9 @@ function renderCharacterUnlocks(result: AnalysisResult): void {
       .map((c) => {
         const cls = c.unlocked ? "char-unlock unlocked" : "char-unlock locked";
         const status = c.unlocked ? "&#10003;" : "&#10007;";
+        const nameLink = wikiLink(characterWikiUrl(c.name), c.name);
         const desc = c.unlocked ? "" : `<div class="unlock-how">${c.unlockDescription}</div>`;
-        return `<div class="${cls}"><span class="status">${status}</span> ${c.name}${desc}</div>`;
+        return `<div class="${cls}"><span class="status">${status}</span> ${nameLink}${desc}</div>`;
       })
       .join("");
     return `<h3>${title}</h3><div class="char-list">${items}</div>`;

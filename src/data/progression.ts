@@ -62,7 +62,6 @@ export const PROGRESSION_GATES: ProgressionGate[] = [
     name: "The Polaroid",
     description: "Defeat Isaac 5 times",
     achievementIds: [57], // "The Polaroid"
-    counterCheck: { field: "isaacKills", threshold: 5 },
     opens: "The Chest (??? path) via Polaroid after defeating Isaac",
     blockedBy: ["sheol-cathedral"],
   },
@@ -71,7 +70,6 @@ export const PROGRESSION_GATES: ProgressionGate[] = [
     name: "The Negative",
     description: "Defeat Satan 5 times",
     achievementIds: [78], // "The Negative"
-    counterCheck: { field: "satanKills", threshold: 5 },
     opens: "Dark Room (The Lamb path) via Negative after defeating Satan",
     blockedBy: ["sheol-cathedral"],
   },

@@ -35,7 +35,7 @@ describe("integration: full pipeline with sample save", () => {
 
     // Stats
     expect(result.stats.deaths).toBeGreaterThan(0);
-    expect(result.stats.momKills).toBeGreaterThanOrEqual(0);
+    expect(result.stats.momKills).toBeGreaterThan(0);
 
     // Character unlock states
     const lockedBase = result.baseCharacters.filter((c) => !c.unlocked);

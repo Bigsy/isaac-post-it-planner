@@ -34,24 +34,21 @@ function getUnlockedIds(achievements: number[]): Set<number> {
 }
 
 function parseCounterStats(counters: number[]): CounterStats {
+  // Index 0 is a surplus zero (padding); real data starts at index 1.
+  // Offsets confirmed via Demorck/Isaac-save-manager & jamesthejellyfish/isaac-save-edit-script.
   const get = (i: number) => (i < counters.length ? counters[i] : 0);
   return {
-    momKills: get(0),
-    deaths: get(1),
-    itemsCollected: get(2),
-    momsHeartKills: get(3),
-    satanKills: get(4),
-    isaacKills: get(5),
-    blueBabyKills: get(6),
-    theLambKills: get(7),
-    megaSatanKills: get(8),
-    bossRushCompletions: get(9),
-    hushCompletions: get(10),
-    deliriumKills: get(11),
-    motherKills: get(12),
-    beastKills: get(13),
-    ultraGreedKills: get(14),
-    ultraGreedierKills: get(15),
+    momKills: get(1),              // 0x04
+    deaths: get(9),                // 0x24
+    momsHeartKills: get(1),        // same counter as momKills
+    rocksDestroyed: get(2),        // 0x08
+    tintedRocksDestroyed: get(3),  // 0x0C
+    poopDestroyed: get(5),         // 0x14
+    shopkeeperKills: get(11),      // 0x2C
+    donationCoins: get(19),        // 0x4C
+    edenTokens: get(21),           // 0x54
+    winStreak: get(22),            // 0x58
+    bestStreak: get(23),           // 0x5C
   };
 }
 
