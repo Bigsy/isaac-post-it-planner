@@ -1,4 +1,11 @@
-import type { AnalysisResult, CharacterProgress, ChallengeInfo, Recommendation } from "./types";
+import type {
+  AnalysisResult,
+  CharacterProgress,
+  TaintedCharacterProgress,
+  ChallengeInfo,
+  LaneRecommendation,
+  Lane,
+} from "./types";
 
 function $(id: string): HTMLElement {
   return document.getElementById(id)!;
@@ -76,25 +83,131 @@ function renderCompletionGrid(grid: CharacterProgress[]): void {
   `;
 }
 
-function priorityBadge(p: number): string {
-  const labels: Record<number, string> = { 1: "HIGH", 2: "MED", 3: "LOW", 4: "OPT" };
-  const classes: Record<number, string> = { 1: "high", 2: "med", 3: "low", 4: "opt" };
-  return `<span class="badge ${classes[p] ?? "opt"}">${labels[p] ?? "?"}</span>`;
+function renderTaintedCompletionGrid(grid: TaintedCharacterProgress[]): void {
+  const bossHeaders = ["Main", "Mom2", "Beast", "Grd+", "Deli", "MSat", "H+BR"];
+
+  const headerRow = `<tr><th>Character</th>${bossHeaders.map((b) => `<th>${b}</th>`).join("")}<th>Done</th></tr>`;
+
+  const rows = grid.map((char) => {
+    const nearComplete = char.total - char.done > 0 && char.total - char.done <= 3 && char.done > 0;
+    const rowClass = nearComplete ? "near-complete" : char.done === char.total ? "complete" : "";
+    const cells = char.marks
+      .map((m) =>
+        m.done
+          ? `<td class="mark done" title="Achievement #${m.achievementId}">&#10003;</td>`
+          : `<td class="mark missing" title="Achievement #${m.achievementId}">&#10007;</td>`,
+      )
+      .join("");
+    return `<tr class="${rowClass}"><td class="char-name">${char.name}</td>${cells}<td class="done-count">${char.done}/${char.total}</td></tr>`;
+  });
+
+  const container = document.getElementById("tainted-completion-grid");
+  if (!container) return;
+  container.innerHTML = `
+    <table class="marks-table">
+      <thead>${headerRow}</thead>
+      <tbody>${rows.join("")}</tbody>
+    </table>
+  `;
 }
 
-function renderRecommendations(recs: Recommendation[]): void {
+const LANE_LABELS: Record<Lane, string> = {
+  "progression-gate": "Progression Gates",
+  "character-unlock": "Character Unlocks",
+  "completion-mark": "Completion Marks",
+  "challenge": "Challenges",
+  "donation": "Donation Milestones",
+  "guardrail": "Tips & Guardrails",
+};
+
+const LANE_BADGE_CLASS: Record<Lane, string> = {
+  "progression-gate": "high",
+  "character-unlock": "high",
+  "completion-mark": "med",
+  "challenge": "med",
+  "donation": "low",
+  "guardrail": "opt",
+};
+
+function renderLaneRecommendations(recs: LaneRecommendation[]): void {
+  const container = document.getElementById("lane-recommendations");
+  if (!container) return;
+
   if (recs.length === 0) {
-    $("recommendations").innerHTML = `<p class="empty">No recommendations — you're done!</p>`;
+    container.innerHTML = `<p class="empty">No recommendations — you're done!</p>`;
     return;
   }
-  const cards = recs.map(
-    (r) => `
-    <div class="rec-card priority-${r.priority}">
-      <div class="rec-header">${priorityBadge(r.priority)} ${r.text}</div>
-      <div class="rec-reason">${r.reason}</div>
-    </div>`,
-  );
-  $("recommendations").innerHTML = cards.join("");
+
+  // Group by lane
+  const byLane = new Map<Lane, LaneRecommendation[]>();
+  for (const r of recs) {
+    const list = byLane.get(r.lane) ?? [];
+    list.push(r);
+    byLane.set(r.lane, list);
+  }
+
+  // Render top blended recommendations first
+  const actionable = recs.filter((r) => r.lane !== "guardrail");
+  const guardrails = recs.filter((r) => r.lane === "guardrail");
+  const topRecs = actionable.slice(0, 10);
+
+  let html = "";
+
+  // Guardrails panel
+  if (guardrails.length > 0) {
+    html += `<div class="guardrails-panel">`;
+    for (const g of guardrails) {
+      const icon = g.whyNow.length > 0 ? "" : "";
+      html += `<div class="guardrail-item"><strong>${g.target}</strong><p>${g.whyNow}</p></div>`;
+    }
+    html += `</div>`;
+  }
+
+  // Top recommendations
+  html += `<h3>Top Recommendations</h3>`;
+  for (const r of topRecs) {
+    const badge = `<span class="badge ${LANE_BADGE_CLASS[r.lane]}">${LANE_LABELS[r.lane]}</span>`;
+    const blockedHtml =
+      r.blockedBy.length > 0
+        ? `<div class="blocked-by">Blocked: ${r.blockedBy.map((b) => b.description).join("; ")}</div>`
+        : "";
+    html += `
+      <div class="rec-card lane-${r.lane}">
+        <div class="rec-header">${badge} ${r.target}</div>
+        <div class="rec-reason">${r.whyNow}</div>
+        ${blockedHtml}
+      </div>`;
+  }
+
+  // Lane sections (collapsible)
+  const laneOrder: Lane[] = [
+    "progression-gate",
+    "character-unlock",
+    "completion-mark",
+    "challenge",
+    "donation",
+  ];
+  for (const lane of laneOrder) {
+    const laneRecs = byLane.get(lane);
+    if (!laneRecs || laneRecs.length === 0) continue;
+
+    html += `<details class="lane-section"><summary>${LANE_LABELS[lane]} (${laneRecs.length})</summary>`;
+    for (const r of laneRecs) {
+      const blockedHtml =
+        r.blockedBy.length > 0
+          ? `<div class="blocked-by">Blocked: ${r.blockedBy.map((b) => b.description).join("; ")}</div>`
+          : "";
+      html += `
+        <div class="rec-card lane-${r.lane}">
+          <div class="rec-header">${r.target}</div>
+          <div class="rec-reason">${r.whyNow}</div>
+          ${blockedHtml}
+        </div>`;
+    }
+    html += `</details>`;
+  }
+
+  container.innerHTML = html;
 }
 
 function renderChallenges(challenges: ChallengeInfo[]): void {
@@ -143,7 +256,8 @@ export function renderResults(result: AnalysisResult): void {
   renderOverview(result);
   renderCharacterUnlocks(result);
   renderCompletionGrid(result.completionGrid);
-  renderRecommendations(result.recommendations);
+  renderTaintedCompletionGrid(result.taintedCompletionGrid);
+  renderLaneRecommendations(result.laneRecommendations);
   renderChallenges(result.challenges);
 }
 

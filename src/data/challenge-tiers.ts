@@ -1,0 +1,43 @@
+/**
+ * Challenge reward value tiers based on item power level.
+ *
+ * High: top-tier items that significantly affect gameplay
+ * Medium: useful items worth pursuing
+ * Low: cosmetics, weak items, or niche unlocks
+ *
+ * Challenges not listed default to 'medium'.
+ */
+
+export type ChallengeTier = "high" | "medium" | "low";
+
+export const CHALLENGE_TIERS: Record<number, ChallengeTier> = {
+  // High value — powerful items
+  17: "high", // Death's Touch (Waka Waka)
+  19: "high", // Epic Fetus (The Family Man)
+  39: "high", // Spirit Sword (Isaac's Awakening)
+  38: "high", // Purgatory (Baptism by Fire)
+
+  // Medium — useful items (default, listed explicitly for notable ones)
+  9: "medium",  // Chaos Card (Demo Man)
+  11: "medium", // Rules Card (Glass Cannon)
+  15: "medium", // Swallowed Penny (Slow Roll)
+  22: "medium", // Get out of Jail Free Card (SPEED!)
+  30: "medium", // Blank Rune (The Guardian)
+
+  // Low value — weak items or cosmetics
+  1: "low",  // Rune of Hagalaz (Pitch Black)
+  2: "low",  // Rune of Jera (High Brow) — actually Jera is strong, but it's a basic challenge
+  3: "low",  // Rune of Ehwaz (Head Trauma)
+  4: "low",  // Rune of Dagaz (Darkness Falls)
+  5: "low",  // Rune of Ansuz (The Tank)
+  12: "low", // Card Against Humanity (When Life Gives You Lemons)
+  13: "low", // Burnt Penny (Beans!)
+  14: "low", // SMB Super Fan (It's in the Cards)
+  24: "low", // 2 new pills (PAY TO PLAY)
+  25: "low", // 2 new pills (Have a Heart)
+  28: "low", // D8 (PRIDE DAY!)
+};
+
+export function getChallengeTier(challengeId: number): ChallengeTier {
+  return CHALLENGE_TIERS[challengeId] ?? "medium";
+}

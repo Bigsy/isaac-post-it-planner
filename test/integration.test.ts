@@ -17,11 +17,16 @@ describe("integration: full pipeline with sample save", () => {
     expect(result.unlockedCount).toBe(113);
     expect(result.totalAchievements).toBe(637);
 
-    // Completion grid
+    // Completion grids
     expect(result.completionGrid.length).toBe(17);
+    expect(result.taintedCompletionGrid.length).toBe(17);
 
-    // Recommendations generated
-    expect(result.recommendations.length).toBeGreaterThan(0);
+    // Lane recommendations generated
+    expect(result.laneRecommendations.length).toBeGreaterThan(0);
+
+    // Lane recommendations span multiple lanes
+    const lanes = new Set(result.laneRecommendations.map((r) => r.lane));
+    expect(lanes.size).toBeGreaterThanOrEqual(3);
 
     // Challenges
     expect(result.challenges.length).toBe(45);
@@ -40,5 +45,12 @@ describe("integration: full pipeline with sample save", () => {
 
     // Tainted characters
     expect(result.taintedCharacters.length).toBe(17);
+
+    // Tainted completion grid
+    for (const char of result.taintedCompletionGrid) {
+      expect(char.total).toBe(7);
+      expect(char.done).toBeGreaterThanOrEqual(0);
+      expect(char.done).toBeLessThanOrEqual(7);
+    }
   });
 });

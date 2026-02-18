@@ -20,7 +20,7 @@ export interface Achievement {
   unlockDescription: string;
 }
 
-/** Per-character completion mark progress */
+/** Per-character completion mark progress (base characters: 13 bosses) */
 export interface CharacterProgress {
   name: string;
   marks: { boss: string; done: boolean; achievementId: number | null }[];
@@ -28,11 +28,41 @@ export interface CharacterProgress {
   total: number;
 }
 
-/** A prioritised recommendation */
-export interface Recommendation {
-  priority: number; // 1 = highest
-  text: string;
-  reason: string;
+/** Per-tainted-character completion mark progress (7 bundled categories) */
+export interface TaintedCharacterProgress {
+  name: string;
+  marks: { boss: string; done: boolean; achievementId: number }[];
+  done: number;
+  total: number;
+}
+
+/** Lane-based recommendation */
+export type Lane =
+  | "progression-gate"
+  | "character-unlock"
+  | "completion-mark"
+  | "challenge"
+  | "donation"
+  | "guardrail";
+
+export type EffortLevel = "single-run" | "multi-run" | "grind";
+
+export interface BlockingDep {
+  description: string;
+  achievementId: number | null;
+  met: boolean;
+}
+
+export interface LaneRecommendation {
+  lane: Lane;
+  target: string;
+  achievementIds: number[];
+  blockedBy: BlockingDep[];
+  blockerDepth: number;
+  estimatedEffort: EffortLevel;
+  downstreamValue: number;
+  score: number;
+  whyNow: string;
 }
 
 /** Challenge info */
@@ -79,6 +109,7 @@ export interface AnalysisResult {
   baseCharacters: CharacterUnlock[];
   taintedCharacters: CharacterUnlock[];
   completionGrid: CharacterProgress[];
+  taintedCompletionGrid: TaintedCharacterProgress[];
   challenges: ChallengeInfo[];
-  recommendations: Recommendation[];
+  laneRecommendations: LaneRecommendation[];
 }
