@@ -305,6 +305,46 @@ tr.complete .char-name { color: var(--green); }
 
 .empty { color: var(--text-dim); font-style: italic; }
 
+/* Bestiary */
+.bestiary-summary { color: var(--text-dim); margin-bottom: 0.75rem; }
+.bestiary-group { margin-top: 0.5rem; }
+.bestiary-group summary {
+  cursor: pointer;
+  color: var(--text);
+  font-weight: 600;
+  font-size: 0.95rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--bg-surface);
+  border-radius: 6px;
+  list-style: none;
+}
+.bestiary-group summary::-webkit-details-marker { display: none; }
+.bestiary-group summary::before { content: "▸ "; color: var(--text-dim); }
+.bestiary-group[open] summary::before { content: "▾ "; }
+.bestiary-group[open] summary { border-radius: 6px 6px 0 0; }
+.bestiary-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+.bestiary-table th {
+  background: var(--bg-surface);
+  color: var(--text-dim);
+  padding: 0.4rem 0.5rem;
+  font-weight: 600;
+  text-align: right;
+  white-space: nowrap;
+}
+.bestiary-table th:first-child { text-align: left; }
+.bestiary-table td {
+  padding: 0.35rem 0.5rem;
+  text-align: right;
+  border-bottom: 1px solid rgba(85, 85, 104, 0.3);
+}
+.bestiary-table td:first-child { text-align: left; font-weight: 600; white-space: nowrap; }
+.bestiary-table tr.not-encountered td { color: var(--grey); }
+.bestiary-table tr.not-encountered td:first-child { color: var(--text-dim); }
+
 /* Wiki links */
 .wiki-link {
   color: inherit;

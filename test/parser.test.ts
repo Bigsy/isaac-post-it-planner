@@ -128,6 +128,49 @@ describe("multi-version parsing", () => {
   });
 });
 
+describe("bestiary parsing", () => {
+  it("Repentance+ save has non-null bestiary", () => {
+    const save = parseSaveFile(loadFile(join(SAVES_DIR, "rep+persistentgamedata1.dat")));
+    expect(save.bestiary).not.toBeNull();
+  });
+
+  it("Repentance+ save has all 4 bestiary maps", () => {
+    const save = parseSaveFile(loadFile(join(SAVES_DIR, "rep+persistentgamedata1.dat")));
+    expect(save.bestiary!.encounters.size).toBeGreaterThan(0);
+    expect(save.bestiary!.kills.size).toBeGreaterThan(0);
+    expect(save.bestiary!.hits.size).toBeGreaterThanOrEqual(0);
+    expect(save.bestiary!.deaths.size).toBeGreaterThanOrEqual(0);
+  });
+
+  it("fully-unlocked save has bestiary with many encounters", () => {
+    const save = parseSaveFile(loadFile(join(SAVES_DIR, "Repentance+_persistentgamedata.dat")));
+    expect(save.bestiary).not.toBeNull();
+    expect(save.bestiary!.encounters.size).toBeGreaterThan(100);
+  });
+
+  it("AB+ save has bestiary", () => {
+    const save = parseSaveFile(loadFile(join(SAVES_DIR, "Afterbirth+_persistentgamedata.dat")));
+    expect(save.bestiary).not.toBeNull();
+  });
+
+  it("Rebirth save has null bestiary", () => {
+    const save = parseSaveFile(loadFile(join(SAVES_DIR, "Rebirth_persistentgamedata.dat")));
+    expect(save.bestiary).toBeNull();
+  });
+
+  it("Afterbirth save has null bestiary", () => {
+    const save = parseSaveFile(loadFile(join(SAVES_DIR, "Afterbirth_persistentgamedata.dat")));
+    expect(save.bestiary).toBeNull();
+  });
+
+  it("bestiary entity keys contain valid id_variant format", () => {
+    const save = parseSaveFile(loadFile(join(SAVES_DIR, "rep+persistentgamedata1.dat")));
+    for (const [key] of save.bestiary!.encounters) {
+      expect(key).toMatch(/^\d+_\d+$/);
+    }
+  });
+});
+
 describe("version-specific expectations", () => {
   it("Rebirth save has fewer achievements than Repentance+", () => {
     const rebirth = parseSaveFile(loadFile(join(SAVES_DIR, "Rebirth_persistentgamedata.dat")));

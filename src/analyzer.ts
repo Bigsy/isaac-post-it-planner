@@ -9,6 +9,8 @@ import type {
   LaneRecommendation,
   BlockingDep,
   EffortLevel,
+  BestiaryData,
+  BestiaryEntry,
 } from "./types";
 import { getAchievement, TOTAL_ACHIEVEMENTS } from "./data/achievements";
 import {
@@ -24,6 +26,7 @@ import { GREED_DONATION_MILESTONES, NORMAL_DONATION_MILESTONES } from "./data/do
 import { CHALLENGE_PREREQS } from "./data/challenge-prereqs";
 import { getChallengeTier } from "./data/challenge-tiers";
 import { GUARDRAILS } from "./data/guardrails";
+import { BESTIARY_ENTITIES, BESTIARY_TOTAL } from "./data/bestiary";
 
 function getUnlockedIds(achievements: number[]): Set<number> {
   const ids = new Set<number>();
@@ -31,6 +34,15 @@ function getUnlockedIds(achievements: number[]): Set<number> {
     if (achievements[i] !== 0) ids.add(i);
   }
   return ids;
+}
+
+function countCollectiblesSeen(collectibles: number[]): { seen: number; total: number } {
+  let seen = 0;
+  const total = Math.max(0, collectibles.length - 1);
+  for (let i = 1; i < collectibles.length; i++) {
+    if (collectibles[i] !== 0) seen++;
+  }
+  return { seen, total };
 }
 
 function parseCounterStats(counters: number[]): CounterStats {
@@ -574,9 +586,27 @@ function generateLaneRecommendations(
   return allRecs;
 }
 
+function analyzeBestiary(bestiary: BestiaryData | null): BestiaryEntry[] {
+  if (!bestiary) return [];
+
+  return BESTIARY_ENTITIES.map((entity) => {
+    const key = `${entity.id}_${entity.variant}`;
+    return {
+      name: entity.name,
+      isBoss: entity.isBoss,
+      encountered: bestiary.encounters.get(key) ?? 0,
+      kills: bestiary.kills.get(key) ?? 0,
+      hitsTaken: bestiary.hits.get(key) ?? 0,
+      deathsTo: bestiary.deaths.get(key) ?? 0,
+    };
+  });
+}
+
 export function analyze(saveData: SaveData): AnalysisResult {
   const unlocked = getUnlockedIds(saveData.achievements);
   const stats = parseCounterStats(saveData.counters);
+  const { seen: collectiblesSeen, total: totalCollectibles } =
+    countCollectiblesSeen(saveData.collectibles);
   const maxAchId = Math.max(0, Math.min(saveData.achievements.length - 1, TOTAL_ACHIEVEMENTS));
   const dlcLevel = saveData.dlcLevel;
   const isRepentance = dlcLevel === "repentance";
@@ -598,10 +628,15 @@ export function analyze(saveData: SaveData): AnalysisResult {
     unlocked, stats, completionGrid, taintedCompletionGrid, challenges, maxAchId,
   );
 
+  const bestiaryEntries = analyzeBestiary(saveData.bestiary);
+  const bestiaryEncountered = bestiaryEntries.filter((e) => e.encountered > 0).length;
+
   return {
     dlcLevel,
     totalAchievements: maxAchId,
     unlockedCount: unlocked.size,
+    collectiblesSeen,
+    totalCollectibles,
     stats,
     baseCharacters,
     taintedCharacters,
@@ -609,16 +644,21 @@ export function analyze(saveData: SaveData): AnalysisResult {
     taintedCompletionGrid,
     challenges,
     laneRecommendations,
+    bestiary: bestiaryEntries,
+    bestiaryEncountered,
+    bestiaryTotal: bestiaryEntries.length > 0 ? BESTIARY_TOTAL : 0,
   };
 }
 
 // Export internals for testing
 export {
   getUnlockedIds,
+  countCollectiblesSeen,
   analyzeCompletionMarks,
   analyzeTaintedCompletionMarks,
   analyzeCharacterUnlocks,
   analyzeChallenges,
+  analyzeBestiary,
   generateLaneRecommendations,
   evaluateProgressionGates,
   evaluateCharacterUnlocks,

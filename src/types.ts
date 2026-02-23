@@ -1,5 +1,23 @@
 import type { DlcLevel } from "./data/dlc";
 
+/** Parsed bestiary sub-chunk maps: "entityId_variant" → count */
+export interface BestiaryData {
+  encounters: Map<string, number>;
+  kills: Map<string, number>;
+  hits: Map<string, number>;
+  deaths: Map<string, number>;
+}
+
+/** Single bestiary entity with all 4 stat categories */
+export interface BestiaryEntry {
+  name: string;
+  isBoss: boolean;
+  encountered: number;
+  kills: number;
+  hitsTaken: number;
+  deathsTo: number;
+}
+
 /** Parsed binary save file data */
 export interface SaveData {
   dlcLevel: DlcLevel;
@@ -13,6 +31,7 @@ export interface SaveData {
   cutsceneCounters: number[]; // i32 array
   gameSettings: number[]; // i32 array
   specialSeedCounters: number[]; // u8 array
+  bestiary: BestiaryData | null; // null for pre-AB+ saves (no chunk 11)
 }
 
 /** Achievement metadata from reference data */
@@ -104,6 +123,8 @@ export interface AnalysisResult {
   dlcLevel: DlcLevel;
   totalAchievements: number;
   unlockedCount: number;
+  collectiblesSeen: number;
+  totalCollectibles: number;
   stats: CounterStats;
   baseCharacters: CharacterUnlock[];
   taintedCharacters: CharacterUnlock[];
@@ -111,4 +132,7 @@ export interface AnalysisResult {
   taintedCompletionGrid: TaintedCharacterProgress[];
   challenges: ChallengeInfo[];
   laneRecommendations: LaneRecommendation[];
+  bestiary: BestiaryEntry[];
+  bestiaryEncountered: number;
+  bestiaryTotal: number;
 }

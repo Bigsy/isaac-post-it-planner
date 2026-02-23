@@ -4,6 +4,7 @@ import type {
   TaintedCharacterProgress,
   ChallengeInfo,
   LaneRecommendation,
+  BestiaryEntry,
   Lane,
 } from "./types";
 import { BOSS_SHORT_NAME } from "./data/characters";
@@ -43,6 +44,16 @@ function renderOverview(result: AnalysisResult): void {
         <div class="stat-label">Achievements (${pct(result.unlockedCount, result.totalAchievements)}%)</div>
         <div class="progress-bar"><div class="progress-fill" style="width:${pct(result.unlockedCount, result.totalAchievements)}%"></div></div>
       </div>
+      <div class="stat-card">
+        <div class="stat-value">${result.collectiblesSeen}/${result.totalCollectibles}</div>
+        <div class="stat-label">Collectibles Seen (${pct(result.collectiblesSeen, result.totalCollectibles)}%)</div>
+        <div class="progress-bar"><div class="progress-fill" style="width:${pct(result.collectiblesSeen, result.totalCollectibles)}%"></div></div>
+      </div>${result.bestiaryTotal > 0 ? `
+      <div class="stat-card">
+        <div class="stat-value">${result.bestiaryEncountered}/${result.bestiaryTotal}</div>
+        <div class="stat-label">Bestiary (${pct(result.bestiaryEncountered, result.bestiaryTotal)}%)</div>
+        <div class="progress-bar"><div class="progress-fill" style="width:${pct(result.bestiaryEncountered, result.bestiaryTotal)}%"></div></div>
+      </div>` : ""}
       <div class="stat-card">
         <div class="stat-value">${s.momKills}</div>
         <div class="stat-label">Mom Kills</div>
@@ -300,6 +311,46 @@ function renderCharacterUnlocks(result: AnalysisResult): void {
   $("characters").innerHTML = html;
 }
 
+function renderBestiaryGroup(entries: BestiaryEntry[], label: string, open: boolean): string {
+  if (entries.length === 0) return "";
+  const encountered = entries.filter((e) => e.encountered > 0).length;
+
+  const rows = entries.map((e) => {
+    const cls = e.encountered === 0 ? ' class="not-encountered"' : "";
+    return `<tr${cls}><td>${e.name}</td><td>${e.encountered}</td><td>${e.kills}</td><td>${e.hitsTaken}</td><td>${e.deathsTo}</td></tr>`;
+  }).join("");
+
+  return `
+    <details class="bestiary-group"${open ? " open" : ""}>
+      <summary>${label} (${encountered}/${entries.length} encountered)</summary>
+      <table class="bestiary-table">
+        <thead><tr><th>Name</th><th>Seen</th><th>Kills</th><th>Hits</th><th>Deaths</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </details>`;
+}
+
+function renderBestiary(result: AnalysisResult): void {
+  const container = document.getElementById("bestiary");
+  const section = document.getElementById("bestiary-section");
+  if (!container || !section) return;
+
+  if (result.bestiary.length === 0) {
+    section.classList.add("hidden");
+    return;
+  }
+  section.classList.remove("hidden");
+
+  const bosses = result.bestiary.filter((e) => e.isBoss);
+  const enemies = result.bestiary.filter((e) => !e.isBoss);
+
+  container.innerHTML = `
+    <p class="bestiary-summary">${result.bestiaryEncountered}/${result.bestiaryTotal} entities encountered (${pct(result.bestiaryEncountered, result.bestiaryTotal)}%)</p>
+    ${renderBestiaryGroup(bosses, "Bosses", false)}
+    ${renderBestiaryGroup(enemies, "Regular Enemies", false)}
+  `;
+}
+
 export function renderResults(result: AnalysisResult): void {
   $("upload-section").classList.add("collapsed");
   $("results").classList.remove("hidden");
@@ -322,6 +373,7 @@ export function renderResults(result: AnalysisResult): void {
 
   renderLaneRecommendations(result.laneRecommendations);
   renderChallenges(result.challenges);
+  renderBestiary(result);
 }
 
 export function showError(message: string): void {

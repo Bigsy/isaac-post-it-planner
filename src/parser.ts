@@ -1,4 +1,4 @@
-import type { SaveData } from "./types";
+import type { SaveData, BestiaryData } from "./types";
 import { inferDlcLevel } from "./data/dlc";
 
 const MAGIC_PREFIX = "ISAACNGSAVE";
@@ -39,6 +39,7 @@ export function parseSaveFile(buffer: ArrayBuffer): SaveData {
 
   let offset = HEADER_SIZE;
   const chunks: Record<number, number[]> = {};
+  let bestiary: BestiaryData | null = null;
 
   for (let i = 0; i < numChunks; i++) {
     if (offset + 8 > buffer.byteLength) break;
@@ -48,8 +49,8 @@ export function parseSaveFile(buffer: ArrayBuffer): SaveData {
     offset += 8;
 
     if (chunkType === 11) {
-      // Bestiary — skip, not needed for analysis
-      break;
+      bestiary = parseBestiaryChunk(view, bytes, offset);
+      break; // bestiary is the last chunk
     }
 
     if (offset + 4 > buffer.byteLength) break;
@@ -87,5 +88,67 @@ export function parseSaveFile(buffer: ArrayBuffer): SaveData {
     cutsceneCounters: chunks[8] ?? [],
     gameSettings: chunks[9] ?? [],
     specialSeedCounters: chunks[10] ?? [],
+    bestiary,
   };
+}
+
+/**
+ * Parse bestiary chunk (type 11).
+ * Format: subChunkCount(u32), then N sub-chunks each with:
+ *   type(i32): 1=encounters, 2=kills, 3=hits, 4=deaths
+ *   lengthField(i32): entryCount * 4
+ *   entries: entryCount × 8 bytes [0x00, variant, id_low, id_high, value(u32)]
+ * Entity ID = ((id_high << 8) | id_low) >> 4
+ * Based on Demorck/Isaac-save-manager SaveManager.ts
+ */
+function parseBestiaryChunk(
+  view: DataView,
+  bytes: Uint8Array,
+  startOffset: number,
+): BestiaryData {
+  const data: BestiaryData = {
+    encounters: new Map(),
+    kills: new Map(),
+    hits: new Map(),
+    deaths: new Map(),
+  };
+  const typeMap: Record<number, keyof BestiaryData> = {
+    1: "encounters",
+    2: "kills",
+    3: "hits",
+    4: "deaths",
+  };
+
+  let offset = startOffset;
+  if (offset + 4 > bytes.byteLength) return data;
+  const subChunkCount = view.getUint32(offset, true);
+  offset += 4;
+
+  for (let i = 0; i < subChunkCount; i++) {
+    if (offset + 8 > bytes.byteLength) break;
+    const type = view.getInt32(offset, true);
+    const lengthField = view.getInt32(offset + 4, true);
+    offset += 8;
+
+    const entryCount = lengthField / 4;
+    const target = data[typeMap[type]];
+    if (!target) {
+      // Unknown sub-chunk type — skip its entries
+      offset += entryCount * 8;
+      continue;
+    }
+
+    for (let j = 0; j < entryCount; j++) {
+      if (offset + 8 > bytes.byteLength) break;
+      const variant = bytes[offset + 1];
+      const idLow = bytes[offset + 2];
+      const idHigh = bytes[offset + 3];
+      const entityId = ((idHigh << 8) | idLow) >> 4;
+      const value = view.getUint32(offset + 4, true);
+      target.set(`${entityId}_${variant}`, value);
+      offset += 8;
+    }
+  }
+
+  return data;
 }

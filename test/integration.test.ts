@@ -39,6 +39,16 @@ describe("integration: full pipeline with sample save", () => {
     const completedChallenges = result.challenges.filter((c) => c.completed).length;
     expect(completedChallenges).toBeGreaterThan(0);
 
+    // Collectibles
+    expect(result.totalCollectibles).toBeGreaterThan(0);
+    expect(result.collectiblesSeen).toBeGreaterThanOrEqual(0);
+    expect(result.collectiblesSeen).toBeLessThanOrEqual(result.totalCollectibles);
+
+    // Bestiary
+    expect(result.bestiary.length).toBeGreaterThan(0);
+    expect(result.bestiaryEncountered).toBeGreaterThan(0);
+    expect(result.bestiaryTotal).toBeGreaterThan(0);
+
     // Stats
     expect(result.stats.deaths).toBeGreaterThan(0);
     expect(result.stats.momKills).toBeGreaterThan(0);
@@ -70,6 +80,7 @@ describe("integration: multi-version saves", () => {
     expect(result.taintedCharacters.length).toBe(0);
     expect(result.taintedCompletionGrid.length).toBe(0);
     expect(result.completionGrid[0].marks.length).toBe(6);
+    expect(result.totalCollectibles).toBeGreaterThan(0);
     expect(result.laneRecommendations.length).toBeGreaterThanOrEqual(0);
   });
 
@@ -80,6 +91,7 @@ describe("integration: multi-version saves", () => {
     expect(result.challenges.length).toBe(30);
     expect(result.taintedCharacters.length).toBe(0);
     expect(result.completionGrid[0].marks.length).toBe(9);
+    expect(result.totalCollectibles).toBeGreaterThan(0);
   });
 
   it("Afterbirth+ save produces valid analysis", () => {
@@ -89,6 +101,7 @@ describe("integration: multi-version saves", () => {
     expect(result.challenges.length).toBe(35);
     expect(result.taintedCharacters.length).toBe(0);
     expect(result.completionGrid[0].marks.length).toBe(11);
+    expect(result.totalCollectibles).toBeGreaterThan(0);
   });
 
   it("Repentance+ save produces valid analysis", () => {
@@ -99,6 +112,7 @@ describe("integration: multi-version saves", () => {
     expect(result.taintedCharacters.length).toBe(17);
     expect(result.completionGrid[0].marks.length).toBe(13);
     expect(result.taintedCompletionGrid.length).toBe(17);
+    expect(result.totalCollectibles).toBeGreaterThan(0);
   });
 
   it("all versions produce lane recommendations", () => {

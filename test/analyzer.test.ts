@@ -5,9 +5,11 @@ import { parseSaveFile } from "../src/parser";
 import {
   analyze,
   getUnlockedIds,
+  countCollectiblesSeen,
   analyzeCompletionMarks,
   analyzeTaintedCompletionMarks,
   analyzeChallenges,
+  analyzeBestiary,
   generateLaneRecommendations,
   evaluateProgressionGates,
   evaluateCharacterUnlocks,
@@ -16,7 +18,8 @@ import {
   evaluateDonation,
   evaluateGuardrails,
 } from "../src/analyzer";
-import type { CounterStats } from "../src/types";
+import type { CounterStats, BestiaryData } from "../src/types";
+import { BESTIARY_ENTITIES, BESTIARY_TOTAL } from "../src/data/bestiary";
 
 const SAMPLE_DIR = join(__dirname, "..", "sample-saves");
 const SAMPLE_PATH = join(SAMPLE_DIR, "rep+persistentgamedata1.dat");
@@ -54,6 +57,32 @@ describe("getUnlockedIds", () => {
   });
 });
 
+describe("countCollectiblesSeen", () => {
+  it("skips index 0 and counts non-zero entries", () => {
+    const result = countCollectiblesSeen([0, 1, 0, 3, 0]);
+    expect(result.seen).toBe(2);
+    expect(result.total).toBe(4);
+  });
+
+  it("handles empty array", () => {
+    const result = countCollectiblesSeen([]);
+    expect(result.seen).toBe(0);
+    expect(result.total).toBe(0);
+  });
+
+  it("handles array with only padding", () => {
+    const result = countCollectiblesSeen([0]);
+    expect(result.seen).toBe(0);
+    expect(result.total).toBe(0);
+  });
+
+  it("counts all seen when every slot is non-zero", () => {
+    const result = countCollectiblesSeen([0, 1, 2, 3]);
+    expect(result.seen).toBe(3);
+    expect(result.total).toBe(3);
+  });
+});
+
 describe("analyze (full pipeline)", () => {
   it("returns correct achievement counts", () => {
     const result = analyze(loadSample());
@@ -79,6 +108,13 @@ describe("analyze (full pipeline)", () => {
   it("has stats with deaths > 0", () => {
     const result = analyze(loadSample());
     expect(result.stats.deaths).toBeGreaterThan(0);
+  });
+
+  it("returns collectible counts", () => {
+    const result = analyze(loadSample());
+    expect(result.totalCollectibles).toBeGreaterThan(0);
+    expect(result.collectiblesSeen).toBeGreaterThanOrEqual(0);
+    expect(result.collectiblesSeen).toBeLessThanOrEqual(result.totalCollectibles);
   });
 
   it("has tainted completion grid with 17 characters", () => {
@@ -366,6 +402,92 @@ describe("generateLaneRecommendations (integration)", () => {
   });
 });
 
+// --- Bestiary analysis ---
+
+describe("analyzeBestiary", () => {
+  it("returns empty array for null bestiary", () => {
+    const result = analyzeBestiary(null);
+    expect(result).toEqual([]);
+  });
+
+  it("returns entries for all known entities", () => {
+    const mockBestiary: BestiaryData = {
+      encounters: new Map([["10_0", 5]]),
+      kills: new Map([["10_0", 3]]),
+      hits: new Map([["10_0", 2]]),
+      deaths: new Map([["10_0", 1]]),
+    };
+    const result = analyzeBestiary(mockBestiary);
+    expect(result.length).toBe(BESTIARY_TOTAL);
+  });
+
+  it("maps encounter/kill/hit/death counts correctly", () => {
+    const mockBestiary: BestiaryData = {
+      encounters: new Map([["10_0", 5], ["20_0", 10]]),
+      kills: new Map([["10_0", 3], ["20_0", 8]]),
+      hits: new Map([["10_0", 2]]),
+      deaths: new Map([["20_0", 1]]),
+    };
+    const result = analyzeBestiary(mockBestiary);
+    const gaper = result.find((e) => e.name === "Frowning Gaper")!;
+    expect(gaper.encountered).toBe(5);
+    expect(gaper.kills).toBe(3);
+    expect(gaper.hitsTaken).toBe(2);
+    expect(gaper.deathsTo).toBe(0);
+
+    const monstro = result.find((e) => e.name === "Monstro")!;
+    expect(monstro.encountered).toBe(10);
+    expect(monstro.kills).toBe(8);
+    expect(monstro.hitsTaken).toBe(0);
+    expect(monstro.deathsTo).toBe(1);
+  });
+
+  it("correctly classifies bosses vs regular enemies", () => {
+    const result = analyzeBestiary({
+      encounters: new Map(),
+      kills: new Map(),
+      hits: new Map(),
+      deaths: new Map(),
+    });
+    const bosses = result.filter((e) => e.isBoss);
+    const regulars = result.filter((e) => !e.isBoss);
+    expect(bosses.length).toBeGreaterThan(0);
+    expect(regulars.length).toBeGreaterThan(0);
+    expect(bosses.length + regulars.length).toBe(BESTIARY_TOTAL);
+  });
+
+  it("unencountered entities default to 0 for all stats", () => {
+    const result = analyzeBestiary({
+      encounters: new Map(),
+      kills: new Map(),
+      hits: new Map(),
+      deaths: new Map(),
+    });
+    for (const e of result) {
+      expect(e.encountered).toBe(0);
+      expect(e.kills).toBe(0);
+      expect(e.hitsTaken).toBe(0);
+      expect(e.deathsTo).toBe(0);
+    }
+  });
+});
+
+describe("analyze with bestiary", () => {
+  it("Repentance save has non-empty bestiary", () => {
+    const result = analyze(loadSample());
+    expect(result.bestiary.length).toBe(BESTIARY_TOTAL);
+    expect(result.bestiaryTotal).toBe(BESTIARY_TOTAL);
+    expect(result.bestiaryEncountered).toBeGreaterThan(0);
+  });
+
+  it("Rebirth save has empty bestiary", () => {
+    const result = analyze(loadSave("Rebirth_persistentgamedata.dat"));
+    expect(result.bestiary.length).toBe(0);
+    expect(result.bestiaryTotal).toBe(0);
+    expect(result.bestiaryEncountered).toBe(0);
+  });
+});
+
 // --- DLC-aware analysis ---
 
 describe("DLC-aware analysis", () => {
@@ -395,6 +517,13 @@ describe("DLC-aware analysis", () => {
       const result = analyze(loadSave("Rebirth_persistentgamedata.dat"));
       expect(result.completionGrid.length).toBeGreaterThan(0);
       expect(result.completionGrid[0].marks.length).toBe(6);
+    });
+
+    it("has collectible counts", () => {
+      const result = analyze(loadSave("Rebirth_persistentgamedata.dat"));
+      expect(result.totalCollectibles).toBeGreaterThan(0);
+      expect(result.collectiblesSeen).toBeGreaterThanOrEqual(0);
+      expect(result.collectiblesSeen).toBeLessThanOrEqual(result.totalCollectibles);
     });
 
     it("has no tainted character recommendations", () => {
@@ -433,6 +562,13 @@ describe("DLC-aware analysis", () => {
       expect(result.taintedCharacters.length).toBe(0);
       expect(result.taintedCompletionGrid.length).toBe(0);
     });
+
+    it("has collectible counts", () => {
+      const result = analyze(loadSave("Afterbirth_persistentgamedata.dat"));
+      expect(result.totalCollectibles).toBeGreaterThan(0);
+      expect(result.collectiblesSeen).toBeGreaterThanOrEqual(0);
+      expect(result.collectiblesSeen).toBeLessThanOrEqual(result.totalCollectibles);
+    });
   });
 
   describe("Afterbirth+ save", () => {
@@ -457,6 +593,13 @@ describe("DLC-aware analysis", () => {
       expect(result.taintedCharacters.length).toBe(0);
       expect(result.taintedCompletionGrid.length).toBe(0);
     });
+
+    it("has collectible counts", () => {
+      const result = analyze(loadSave("Afterbirth+_persistentgamedata.dat"));
+      expect(result.totalCollectibles).toBeGreaterThan(0);
+      expect(result.collectiblesSeen).toBeGreaterThanOrEqual(0);
+      expect(result.collectiblesSeen).toBeLessThanOrEqual(result.totalCollectibles);
+    });
   });
 
   describe("Repentance save", () => {
@@ -479,6 +622,13 @@ describe("DLC-aware analysis", () => {
       const result = analyze(loadSample());
       expect(result.taintedCharacters.length).toBe(17);
       expect(result.taintedCompletionGrid.length).toBe(17);
+    });
+
+    it("has collectible counts", () => {
+      const result = analyze(loadSample());
+      expect(result.totalCollectibles).toBeGreaterThan(0);
+      expect(result.collectiblesSeen).toBeGreaterThanOrEqual(0);
+      expect(result.collectiblesSeen).toBeLessThanOrEqual(result.totalCollectibles);
     });
   });
 
