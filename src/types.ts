@@ -1,5 +1,8 @@
+import type { DlcLevel } from "./data/dlc";
+
 /** Parsed binary save file data */
 export interface SaveData {
+  dlcLevel: DlcLevel;
   achievements: number[]; // u8 array, index = achievement ID, non-zero = unlocked
   counters: number[]; // i32 array (deaths, kills, etc.)
   levelCounters: number[]; // i32 array
@@ -98,6 +101,7 @@ export interface CounterStats {
 
 /** Full analysis result passed to UI */
 export interface AnalysisResult {
+  dlcLevel: DlcLevel;
   totalAchievements: number;
   unlockedCount: number;
   stats: CounterStats;

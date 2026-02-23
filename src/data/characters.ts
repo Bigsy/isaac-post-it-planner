@@ -61,6 +61,11 @@ export const BOSS_SHORT_NAMES = [
   "Beast", "Greed", "Grd+",
 ] as const;
 
+/** Lookup from full boss name to short name */
+export const BOSS_SHORT_NAME: Record<string, string> = Object.fromEntries(
+  BOSS_NAMES.map((name, i) => [name, BOSS_SHORT_NAMES[i]])
+);
+
 /**
  * Completion mark achievement IDs per character.
  * Each array is indexed by boss (same order as BOSS_NAMES).

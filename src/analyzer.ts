@@ -70,21 +70,33 @@ function analyzeCharacterUnlocks(
     });
 }
 
-function analyzeCompletionMarks(unlocked: Set<number>): CharacterProgress[] {
-  return Object.entries(COMPLETION_MARKS).map(([name, marks]) => {
+function analyzeCompletionMarks(
+  unlocked: Set<number>,
+  maxAchId: number = TOTAL_ACHIEVEMENTS,
+): CharacterProgress[] {
+  const results: CharacterProgress[] = [];
+
+  for (const [name, marks] of Object.entries(COMPLETION_MARKS)) {
     let done = 0;
     let total = 0;
-    const markDetails = marks.map((achId, i) => {
-      if (achId === null) {
-        return { boss: BOSS_NAMES[i], done: false, achievementId: null };
-      }
+    const markDetails: CharacterProgress["marks"] = [];
+
+    for (let i = 0; i < marks.length; i++) {
+      const achId = marks[i];
+      if (achId === null || achId > maxAchId) continue;
       total++;
       const isDone = unlocked.has(achId);
       if (isDone) done++;
-      return { boss: BOSS_NAMES[i], done: isDone, achievementId: achId };
-    });
-    return { name, marks: markDetails, done, total };
-  });
+      markDetails.push({ boss: BOSS_NAMES[i], done: isDone, achievementId: achId });
+    }
+
+    // Skip characters where no marks survive the filter
+    if (markDetails.length === 0) continue;
+
+    results.push({ name, marks: markDetails, done, total });
+  }
+
+  return results;
 }
 
 function analyzeTaintedCompletionMarks(unlocked: Set<number>): TaintedCharacterProgress[] {
@@ -101,11 +113,13 @@ function analyzeTaintedCompletionMarks(unlocked: Set<number>): TaintedCharacterP
 
 function analyzeChallenges(challengeData: number[]): ChallengeInfo[] {
   const results: ChallengeInfo[] = [];
-  for (let i = 1; i <= 45; i++) {
-    const completed = i < challengeData.length && challengeData[i] !== 0;
+  for (let i = 1; i < challengeData.length; i++) {
+    const name = CHALLENGE_NAMES[i];
+    if (!name) continue; // skip unknown challenge slots
+    const completed = challengeData[i] !== 0;
     results.push({
       id: i,
-      name: CHALLENGE_NAMES[i] ?? `Challenge ${i}`,
+      name,
       reward: CHALLENGE_REWARDS[i] ?? null,
       completed,
     });
@@ -165,15 +179,22 @@ function isGateCleared(
 function evaluateProgressionGates(
   unlocked: Set<number>,
   stats: CounterStats,
+  maxAchId: number = TOTAL_ACHIEVEMENTS,
 ): LaneRecommendation[] {
   const recs: LaneRecommendation[] = [];
 
-  for (const gate of PROGRESSION_GATES) {
+  // Filter gates: only include gates where every achievementId is <= maxAchId
+  // Gates with empty achievementIds (counter-based) pass through
+  const filteredGates = PROGRESSION_GATES.filter((gate) =>
+    gate.achievementIds.length === 0 || gate.achievementIds.every((id) => id <= maxAchId),
+  );
+
+  for (const gate of filteredGates) {
     if (isGateCleared(gate, unlocked, stats)) continue;
 
     // Check blockers — use same clearing logic
     const blockerGates = gate.blockedBy
-      .map((id) => PROGRESSION_GATES.find((g) => g.id === id))
+      .map((id) => filteredGates.find((g) => g.id === id))
       .filter(Boolean);
     const blockers: BlockingDep[] = [];
     let depth = 0;
@@ -190,7 +211,7 @@ function evaluateProgressionGates(
     }
 
     // Count downstream value (gates + characters opened)
-    const downstream = PROGRESSION_GATES.filter((g) =>
+    const downstream = filteredGates.filter((g) =>
       g.blockedBy.includes(gate.id),
     ).length;
 
@@ -220,21 +241,23 @@ function evaluateProgressionGates(
 
 function evaluateCharacterUnlocks(
   unlocked: Set<number>,
+  maxAchId: number = TOTAL_ACHIEVEMENTS,
 ): LaneRecommendation[] {
   const recs: LaneRecommendation[] = [];
 
   for (const [idStr, name] of Object.entries(BASE_CHARACTER_UNLOCKS)) {
     const id = Number(idStr);
+    if (id > maxAchId) continue;
     if (unlocked.has(id)) continue;
 
     // Count how many marks this character would open
     const marks = COMPLETION_MARKS[name === "Jacob & Esau" ? "Jacob" : name];
     const markCount = marks
-      ? marks.filter((m) => m !== null).length
-      : 13;
+      ? marks.filter((m) => m !== null && m <= maxAchId).length
+      : 0;
 
     const score = computeScore(
-      Math.min(markCount / 13, 1),
+      markCount > 0 ? Math.min(markCount / 13, 1) : 0.3,
       0.6,
       "single-run",
       0.1,
@@ -254,43 +277,46 @@ function evaluateCharacterUnlocks(
     });
   }
 
-  // Tainted characters
-  for (const [idStr, name] of Object.entries(TAINTED_CHARACTER_UNLOCKS)) {
-    const id = Number(idStr);
-    if (unlocked.has(id)) continue;
+  // Tainted characters — only if maxAchId >= 474 (first tainted unlock ID)
+  if (maxAchId >= 474) {
+    for (const [idStr, name] of Object.entries(TAINTED_CHARACTER_UNLOCKS)) {
+      const id = Number(idStr);
+      if (id > maxAchId) continue;
+      if (unlocked.has(id)) continue;
 
-    // Tainted chars require Home access (ach 635)
-    const homeUnlocked = unlocked.has(635);
-    const blockers: BlockingDep[] = [];
-    let depth = 0;
-    if (!homeUnlocked) {
-      blockers.push({
-        description: "Defeat Mother to unlock Home access",
-        achievementId: 635,
-        met: false,
+      // Tainted chars require Home access (ach 635)
+      const homeUnlocked = unlocked.has(635);
+      const blockers: BlockingDep[] = [];
+      let depth = 0;
+      if (!homeUnlocked) {
+        blockers.push({
+          description: "Defeat Mother to unlock Home access",
+          achievementId: 635,
+          met: false,
+        });
+        depth = 1;
+      }
+
+      const score = computeScore(
+        0.5, // 7 marks per tainted char
+        homeUnlocked ? 0.5 : 0.1,
+        "single-run",
+        0.2,
+        depth,
+      );
+
+      recs.push({
+        lane: "character-unlock",
+        target: `Unlock ${name}`,
+        achievementIds: [id],
+        blockedBy: blockers,
+        blockerDepth: depth,
+        estimatedEffort: "single-run",
+        downstreamValue: 7,
+        score,
+        whyNow: `Reach Home as ${name.replace("T.", "")} with Red Key/Cracked Key — opens 7 tainted marks`,
       });
-      depth = 1;
     }
-
-    const score = computeScore(
-      0.5, // 7 marks per tainted char
-      homeUnlocked ? 0.5 : 0.1,
-      "single-run",
-      0.2,
-      depth,
-    );
-
-    recs.push({
-      lane: "character-unlock",
-      target: `Unlock ${name}`,
-      achievementIds: [id],
-      blockedBy: blockers,
-      blockerDepth: depth,
-      estimatedEffort: "single-run",
-      downstreamValue: 7,
-      score,
-      whyNow: `Reach Home as ${name.replace("T.", "")} with Red Key/Cracked Key — opens 7 tainted marks`,
-    });
   }
 
   return recs;
@@ -430,12 +456,16 @@ function evaluateChallenges(
   return recs;
 }
 
-function evaluateDonation(unlocked: Set<number>): LaneRecommendation[] {
+function evaluateDonation(
+  unlocked: Set<number>,
+  maxAchId: number = TOTAL_ACHIEVEMENTS,
+): LaneRecommendation[] {
   const recs: LaneRecommendation[] = [];
 
-  // Find next unmet Greed milestone
+  // Find next unmet Greed milestone (filtered by DLC)
+  const filteredGreed = GREED_DONATION_MILESTONES.filter((m) => m.achievementId <= maxAchId);
   let lastGreedMet = 0;
-  for (const m of GREED_DONATION_MILESTONES) {
+  for (const m of filteredGreed) {
     if (unlocked.has(m.achievementId)) {
       lastGreedMet = m.coins;
     } else {
@@ -464,9 +494,10 @@ function evaluateDonation(unlocked: Set<number>): LaneRecommendation[] {
     }
   }
 
-  // Find next unmet Normal milestone
+  // Find next unmet Normal milestone (filtered by DLC)
+  const filteredNormal = NORMAL_DONATION_MILESTONES.filter((m) => m.achievementId <= maxAchId);
   let lastNormalMet = 0;
-  for (const m of NORMAL_DONATION_MILESTONES) {
+  for (const m of filteredNormal) {
     if (unlocked.has(m.achievementId)) {
       lastNormalMet = m.coins;
     } else {
@@ -522,13 +553,14 @@ function generateLaneRecommendations(
   baseGrid: CharacterProgress[],
   taintedGrid: TaintedCharacterProgress[],
   challenges: ChallengeInfo[],
+  maxAchId: number = TOTAL_ACHIEVEMENTS,
 ): LaneRecommendation[] {
   const allRecs = [
-    ...evaluateProgressionGates(unlocked, stats),
-    ...evaluateCharacterUnlocks(unlocked),
+    ...evaluateProgressionGates(unlocked, stats, maxAchId),
+    ...evaluateCharacterUnlocks(unlocked, maxAchId),
     ...evaluateCompletionMarks(unlocked, baseGrid, taintedGrid),
     ...evaluateChallenges(unlocked, challenges),
-    ...evaluateDonation(unlocked),
+    ...evaluateDonation(unlocked, maxAchId),
     ...evaluateGuardrails(unlocked),
   ];
 
@@ -545,17 +577,30 @@ function generateLaneRecommendations(
 export function analyze(saveData: SaveData): AnalysisResult {
   const unlocked = getUnlockedIds(saveData.achievements);
   const stats = parseCounterStats(saveData.counters);
-  const baseCharacters = analyzeCharacterUnlocks(unlocked, BASE_CHARACTER_UNLOCKS);
-  const taintedCharacters = analyzeCharacterUnlocks(unlocked, TAINTED_CHARACTER_UNLOCKS);
-  const completionGrid = analyzeCompletionMarks(unlocked);
-  const taintedCompletionGrid = analyzeTaintedCompletionMarks(unlocked);
+  const maxAchId = Math.max(0, Math.min(saveData.achievements.length - 1, TOTAL_ACHIEVEMENTS));
+  const dlcLevel = saveData.dlcLevel;
+  const isRepentance = dlcLevel === "repentance";
+
+  // Filter character maps to DLC-appropriate characters
+  const filteredBase = Object.fromEntries(
+    Object.entries(BASE_CHARACTER_UNLOCKS).filter(([id]) => Number(id) <= maxAchId),
+  );
+  const filteredTainted = isRepentance ? TAINTED_CHARACTER_UNLOCKS : {};
+
+  const baseCharacters = analyzeCharacterUnlocks(unlocked, filteredBase);
+  const taintedCharacters = analyzeCharacterUnlocks(unlocked, filteredTainted);
+  const completionGrid = analyzeCompletionMarks(unlocked, maxAchId);
+  const taintedCompletionGrid = isRepentance
+    ? analyzeTaintedCompletionMarks(unlocked)
+    : [];
   const challenges = analyzeChallenges(saveData.challenges);
   const laneRecommendations = generateLaneRecommendations(
-    unlocked, stats, completionGrid, taintedCompletionGrid, challenges,
+    unlocked, stats, completionGrid, taintedCompletionGrid, challenges, maxAchId,
   );
 
   return {
-    totalAchievements: TOTAL_ACHIEVEMENTS,
+    dlcLevel,
+    totalAchievements: maxAchId,
     unlockedCount: unlocked.size,
     stats,
     baseCharacters,

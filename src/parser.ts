@@ -1,4 +1,5 @@
 import type { SaveData } from "./types";
+import { inferDlcLevel } from "./data/dlc";
 
 const MAGIC_PREFIX = "ISAACNGSAVE";
 const SUPPORTED_VERSIONS = ["06", "08", "09"];
@@ -75,6 +76,7 @@ export function parseSaveFile(buffer: ArrayBuffer): SaveData {
   }
 
   return {
+    dlcLevel: inferDlcLevel(chunks[1]?.length ?? 0),
     achievements: chunks[1] ?? [],
     counters: chunks[2] ?? [],
     levelCounters: chunks[3] ?? [],

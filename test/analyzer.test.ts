@@ -18,12 +18,17 @@ import {
 } from "../src/analyzer";
 import type { CounterStats } from "../src/types";
 
-const SAMPLE_PATH = join(__dirname, "..", "sample-saves", "rep+persistentgamedata1.dat");
+const SAMPLE_DIR = join(__dirname, "..", "sample-saves");
+const SAMPLE_PATH = join(SAMPLE_DIR, "rep+persistentgamedata1.dat");
 
-function loadSample() {
-  const buf = readFileSync(SAMPLE_PATH);
+function loadSave(filename: string) {
+  const buf = readFileSync(join(SAMPLE_DIR, filename));
   const ab = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
   return parseSaveFile(ab);
+}
+
+function loadSample() {
+  return loadSave("rep+persistentgamedata1.dat");
 }
 
 function emptyCounters(): CounterStats {
@@ -358,5 +363,149 @@ describe("generateLaneRecommendations (integration)", () => {
       const minUnblocked = Math.min(...unblocked.map((r) => r.score));
       expect(minUnblocked).toBeGreaterThan(maxBlocked);
     }
+  });
+});
+
+// --- DLC-aware analysis ---
+
+describe("DLC-aware analysis", () => {
+  describe("Rebirth save", () => {
+    it("detects rebirth DLC level", () => {
+      const result = analyze(loadSave("Rebirth_persistentgamedata.dat"));
+      expect(result.dlcLevel).toBe("rebirth");
+    });
+
+    it("has totalAchievements = 178", () => {
+      const result = analyze(loadSave("Rebirth_persistentgamedata.dat"));
+      expect(result.totalAchievements).toBe(178);
+    });
+
+    it("has 20 challenges", () => {
+      const result = analyze(loadSave("Rebirth_persistentgamedata.dat"));
+      expect(result.challenges.length).toBe(20);
+    });
+
+    it("has 0 tainted characters", () => {
+      const result = analyze(loadSave("Rebirth_persistentgamedata.dat"));
+      expect(result.taintedCharacters.length).toBe(0);
+      expect(result.taintedCompletionGrid.length).toBe(0);
+    });
+
+    it("completion grid has 6 boss columns", () => {
+      const result = analyze(loadSave("Rebirth_persistentgamedata.dat"));
+      expect(result.completionGrid.length).toBeGreaterThan(0);
+      expect(result.completionGrid[0].marks.length).toBe(6);
+    });
+
+    it("has no tainted character recommendations", () => {
+      const result = analyze(loadSave("Rebirth_persistentgamedata.dat"));
+      const taintedRecs = result.laneRecommendations.filter((r) =>
+        r.target.includes("T."),
+      );
+      expect(taintedRecs.length).toBe(0);
+    });
+  });
+
+  describe("Afterbirth save", () => {
+    it("detects afterbirth DLC level", () => {
+      const result = analyze(loadSave("Afterbirth_persistentgamedata.dat"));
+      expect(result.dlcLevel).toBe("afterbirth");
+    });
+
+    it("has totalAchievements = 276", () => {
+      const result = analyze(loadSave("Afterbirth_persistentgamedata.dat"));
+      expect(result.totalAchievements).toBe(276);
+    });
+
+    it("has 30 challenges", () => {
+      const result = analyze(loadSave("Afterbirth_persistentgamedata.dat"));
+      expect(result.challenges.length).toBe(30);
+    });
+
+    it("completion grid has 9 boss columns", () => {
+      const result = analyze(loadSave("Afterbirth_persistentgamedata.dat"));
+      expect(result.completionGrid.length).toBeGreaterThan(0);
+      expect(result.completionGrid[0].marks.length).toBe(9);
+    });
+
+    it("has 0 tainted characters", () => {
+      const result = analyze(loadSave("Afterbirth_persistentgamedata.dat"));
+      expect(result.taintedCharacters.length).toBe(0);
+      expect(result.taintedCompletionGrid.length).toBe(0);
+    });
+  });
+
+  describe("Afterbirth+ save", () => {
+    it("detects afterbirth-plus DLC level", () => {
+      const result = analyze(loadSave("Afterbirth+_persistentgamedata.dat"));
+      expect(result.dlcLevel).toBe("afterbirth-plus");
+    });
+
+    it("has 35 challenges", () => {
+      const result = analyze(loadSave("Afterbirth+_persistentgamedata.dat"));
+      expect(result.challenges.length).toBe(35);
+    });
+
+    it("completion grid has 11 boss columns", () => {
+      const result = analyze(loadSave("Afterbirth+_persistentgamedata.dat"));
+      expect(result.completionGrid.length).toBeGreaterThan(0);
+      expect(result.completionGrid[0].marks.length).toBe(11);
+    });
+
+    it("has 0 tainted characters", () => {
+      const result = analyze(loadSave("Afterbirth+_persistentgamedata.dat"));
+      expect(result.taintedCharacters.length).toBe(0);
+      expect(result.taintedCompletionGrid.length).toBe(0);
+    });
+  });
+
+  describe("Repentance save", () => {
+    it("detects repentance DLC level", () => {
+      const result = analyze(loadSample());
+      expect(result.dlcLevel).toBe("repentance");
+    });
+
+    it("has 45 challenges", () => {
+      const result = analyze(loadSample());
+      expect(result.challenges.length).toBe(45);
+    });
+
+    it("completion grid has 13 boss columns", () => {
+      const result = analyze(loadSample());
+      expect(result.completionGrid[0].marks.length).toBe(13);
+    });
+
+    it("has 17 tainted characters", () => {
+      const result = analyze(loadSample());
+      expect(result.taintedCharacters.length).toBe(17);
+      expect(result.taintedCompletionGrid.length).toBe(17);
+    });
+  });
+
+  describe("Rebirth-level filtering", () => {
+    it("excludes Repentance-only progression gates", () => {
+      const unlocked = new Set<number>();
+      const recs = evaluateProgressionGates(unlocked, emptyCounters(), 178);
+      // alt-path (ach 407) and home-beast (ach 635) should be excluded
+      expect(recs.every((r) => !r.target.includes("Mother"))).toBe(true);
+      expect(recs.every((r) => !r.target.includes("Hush 3 times"))).toBe(true);
+    });
+
+    it("excludes Afterbirth+ characters from unlocks", () => {
+      const unlocked = new Set<number>();
+      const recs = evaluateCharacterUnlocks(unlocked, 178);
+      // Lilith (199) and later should be excluded
+      expect(recs.every((r) => !r.target.includes("Lilith"))).toBe(true);
+      expect(recs.every((r) => !r.target.includes("Keeper"))).toBe(true);
+      expect(recs.every((r) => !r.target.includes("T."))).toBe(true);
+    });
+
+    it("filters completion marks to 6 boss columns", () => {
+      const unlocked = new Set<number>();
+      const grid = analyzeCompletionMarks(unlocked, 178);
+      for (const char of grid) {
+        expect(char.marks.length).toBe(6);
+      }
+    });
   });
 });

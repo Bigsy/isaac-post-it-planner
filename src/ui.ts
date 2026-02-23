@@ -6,8 +6,9 @@ import type {
   LaneRecommendation,
   Lane,
 } from "./types";
-import { BOSS_SHORT_NAMES } from "./data/characters";
+import { BOSS_SHORT_NAME } from "./data/characters";
 import { TAINTED_BOSS_SHORT_NAMES } from "./data/tainted-marks";
+import { DLC_LABELS } from "./data/dlc";
 import {
   bossWikiUrl,
   characterWikiUrl,
@@ -22,6 +23,13 @@ function $(id: string): HTMLElement {
 
 function pct(n: number, total: number): string {
   return total === 0 ? "0.0" : ((n / total) * 100).toFixed(1);
+}
+
+function renderDlcBadge(result: AnalysisResult): void {
+  const el = document.getElementById("dlc-badge");
+  if (!el) return;
+  el.textContent = DLC_LABELS[result.dlcLevel];
+  el.className = `dlc-badge dlc-${result.dlcLevel}`;
 }
 
 function renderOverview(result: AnalysisResult): void {
@@ -44,7 +52,7 @@ function renderOverview(result: AnalysisResult): void {
         <div class="stat-label">Deaths</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">${completedChallenges}/45</div>
+        <div class="stat-value">${completedChallenges}/${result.challenges.length}</div>
         <div class="stat-label">Challenges</div>
       </div>
       <div class="stat-card">
@@ -93,7 +101,17 @@ function markCell(mark: CharacterProgress["marks"][0]): string {
 }
 
 function renderCompletionGrid(grid: CharacterProgress[]): void {
-  const headerRow = `<tr><th>Character</th>${BOSS_SHORT_NAMES.map((b) => `<th>${wikiLink(bossWikiUrl(b), b)}</th>`).join("")}<th>Done</th></tr>`;
+  if (grid.length === 0) {
+    $("completion-grid").innerHTML = `<p class="empty">No completion marks available for this DLC version.</p>`;
+    return;
+  }
+
+  // Derive boss columns from the grid data
+  const bossNames = grid[0].marks.map((m) => m.boss);
+  const headerRow = `<tr><th>Character</th>${bossNames.map((b) => {
+    const short = BOSS_SHORT_NAME[b] ?? b;
+    return `<th>${wikiLink(bossWikiUrl(short), short)}</th>`;
+  }).join("")}<th>Done</th></tr>`;
 
   const rows = grid.map((char) => {
     const nearComplete = char.total - char.done > 0 && char.total - char.done <= 4 && char.done > 0;
@@ -275,19 +293,33 @@ function renderCharacterUnlocks(result: AnalysisResult): void {
     return `<h3>${title}</h3><div class="char-list">${items}</div>`;
   };
 
-  $("characters").innerHTML =
-    renderGroup(result.baseCharacters, "Base Characters") +
-    renderGroup(result.taintedCharacters, "Tainted Characters");
+  let html = renderGroup(result.baseCharacters, "Base Characters");
+  if (result.taintedCharacters.length > 0) {
+    html += renderGroup(result.taintedCharacters, "Tainted Characters");
+  }
+  $("characters").innerHTML = html;
 }
 
 export function renderResults(result: AnalysisResult): void {
   $("upload-section").classList.add("collapsed");
   $("results").classList.remove("hidden");
 
+  renderDlcBadge(result);
   renderOverview(result);
   renderCharacterUnlocks(result);
   renderCompletionGrid(result.completionGrid);
-  renderTaintedCompletionGrid(result.taintedCompletionGrid);
+
+  // Conditionally show/hide tainted section
+  const taintedSection = document.getElementById("tainted-section");
+  if (taintedSection) {
+    if (result.dlcLevel === "repentance") {
+      taintedSection.classList.remove("hidden");
+      renderTaintedCompletionGrid(result.taintedCompletionGrid);
+    } else {
+      taintedSection.classList.add("hidden");
+    }
+  }
+
   renderLaneRecommendations(result.laneRecommendations);
   renderChallenges(result.challenges);
 }
