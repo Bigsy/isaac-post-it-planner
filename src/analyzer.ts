@@ -57,7 +57,8 @@ function parseCounterStats(counters: number[]): CounterStats {
     tintedRocksDestroyed: get(3),  // 0x0C
     poopDestroyed: get(5),         // 0x14
     shopkeeperKills: get(11),      // 0x2C
-    donationCoins: get(19),        // 0x4C
+    greedDonationCoins: get(19),   // 0x4C
+    normalDonationCoins: get(20),  // 0x50
     edenTokens: get(21),           // 0x54
     winStreak: get(22),            // 0x58
     bestStreak: get(23),           // 0x5C
@@ -470,6 +471,7 @@ function evaluateChallenges(
 
 function evaluateDonation(
   unlocked: Set<number>,
+  stats: CounterStats,
   maxAchId: number = TOTAL_ACHIEVEMENTS,
 ): LaneRecommendation[] {
   const recs: LaneRecommendation[] = [];
@@ -489,6 +491,7 @@ function evaluateDonation(
         0,
       );
 
+      const coinProgress = `(${stats.greedDonationCoins}/${m.coins} coins)`;
       recs.push({
         lane: "donation",
         target: `Greed Donation: reach ${m.coins} coins for ${m.name}`,
@@ -499,35 +502,42 @@ function evaluateDonation(
         downstreamValue: m.strategic ? 5 : 1,
         score,
         whyNow: m.strategic
-          ? `Strategic milestone — ${m.name} significantly impacts progression`
-          : `Next Greed donation milestone (${m.coins} coins)`,
+          ? `Strategic milestone — ${m.name} significantly impacts progression ${coinProgress}`
+          : `Next Greed donation milestone ${coinProgress}`,
       });
       break; // Only show next milestone
     }
   }
 
-  // Find next unmet Normal milestone (filtered by DLC)
+  // Find next unmet Normal milestone (filtered by DLC) — include non-strategic milestones too
   const filteredNormal = NORMAL_DONATION_MILESTONES.filter((m) => m.achievementId <= maxAchId);
   let lastNormalMet = 0;
   for (const m of filteredNormal) {
     if (unlocked.has(m.achievementId)) {
       lastNormalMet = m.coins;
     } else {
-      if (m.strategic) {
-        const score = computeScore(0.4, lastNormalMet > 0 ? 0.4 : 0.2, "grind", 0.1, 0);
-        recs.push({
-          lane: "donation",
-          target: `Normal Donation: reach ${m.coins} coins for ${m.name}`,
-          achievementIds: [m.achievementId],
-          blockedBy: [],
-          blockerDepth: 0,
-          estimatedEffort: "grind",
-          downstreamValue: 2,
-          score,
-          whyNow: "Normal donations happen passively — just keep playing",
-        });
-      }
-      break;
+      const coinProgress = `(${stats.normalDonationCoins}/${m.coins} coins)`;
+      const score = computeScore(
+        m.strategic ? 0.4 : 0.2,
+        lastNormalMet > 0 ? 0.4 : 0.2,
+        "grind",
+        0.1,
+        0,
+      );
+      recs.push({
+        lane: "donation",
+        target: `Normal Donation: reach ${m.coins} coins for ${m.name}`,
+        achievementIds: [m.achievementId],
+        blockedBy: [],
+        blockerDepth: 0,
+        estimatedEffort: "grind",
+        downstreamValue: m.strategic ? 2 : 1,
+        score,
+        whyNow: m.strategic
+          ? `Strategic milestone — ${m.name} significantly impacts progression ${coinProgress}`
+          : `Normal donations happen passively — just keep playing ${coinProgress}`,
+      });
+      break; // Only show next milestone
     }
   }
 
@@ -572,7 +582,7 @@ function generateLaneRecommendations(
     ...evaluateCharacterUnlocks(unlocked, maxAchId),
     ...evaluateCompletionMarks(unlocked, baseGrid, taintedGrid),
     ...evaluateChallenges(unlocked, challenges),
-    ...evaluateDonation(unlocked, maxAchId),
+    ...evaluateDonation(unlocked, stats, maxAchId),
     ...evaluateGuardrails(unlocked),
   ];
 

@@ -38,7 +38,7 @@ function emptyCounters(): CounterStats {
   return {
     momKills: 0, deaths: 0, momsHeartKills: 0,
     rocksDestroyed: 0, tintedRocksDestroyed: 0, poopDestroyed: 0,
-    shopkeeperKills: 0, donationCoins: 0,
+    shopkeeperKills: 0, greedDonationCoins: 0, normalDonationCoins: 0,
     edenTokens: 0, winStreak: 0, bestStreak: 0,
   };
 }
@@ -303,8 +303,32 @@ describe("evaluateChallenges", () => {
 describe("evaluateDonation", () => {
   it("empty save shows greed donation milestone", () => {
     const unlocked = new Set<number>();
-    const recs = evaluateDonation(unlocked);
+    const recs = evaluateDonation(unlocked, emptyCounters());
     expect(recs.some((r) => r.target.includes("Greed Donation"))).toBe(true);
+  });
+
+  it("empty save shows normal donation milestone", () => {
+    const unlocked = new Set<number>();
+    const recs = evaluateDonation(unlocked, emptyCounters());
+    expect(recs.some((r) => r.target.includes("Normal Donation"))).toBe(true);
+  });
+
+  it("includes coin progress in greed whyNow", () => {
+    const unlocked = new Set<number>();
+    const stats = { ...emptyCounters(), greedDonationCoins: 100 };
+    const recs = evaluateDonation(unlocked, stats);
+    const greed = recs.find((r) => r.target.includes("Greed Donation"));
+    expect(greed).toBeDefined();
+    expect(greed!.whyNow).toContain("(100/");
+  });
+
+  it("includes coin progress in normal whyNow", () => {
+    const unlocked = new Set<number>();
+    const stats = { ...emptyCounters(), normalDonationCoins: 5 };
+    const recs = evaluateDonation(unlocked, stats);
+    const normal = recs.find((r) => r.target.includes("Normal Donation"));
+    expect(normal).toBeDefined();
+    expect(normal!.whyNow).toContain("(5/");
   });
 });
 

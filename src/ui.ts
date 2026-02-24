@@ -95,8 +95,12 @@ function renderOverview(result: AnalysisResult): void {
         <div class="stat-label">Shopkeepers Killed</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">${s.donationCoins}</div>
-        <div class="stat-label">Donation Coins</div>
+        <div class="stat-value">${s.greedDonationCoins}</div>
+        <div class="stat-label">Greed Donation</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">${s.normalDonationCoins}</div>
+        <div class="stat-label">Normal Donation</div>
       </div>
     </div>
   `;

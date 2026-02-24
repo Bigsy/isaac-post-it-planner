@@ -112,7 +112,8 @@ export interface CounterStats {
   tintedRocksDestroyed: number;
   poopDestroyed: number;
   shopkeeperKills: number;
-  donationCoins: number;
+  greedDonationCoins: number;
+  normalDonationCoins: number;
   edenTokens: number;
   winStreak: number;
   bestStreak: number;

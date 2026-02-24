@@ -1,8 +1,8 @@
 /**
  * Donation machine milestones.
  *
- * Achievement IDs allow coarse progress tracking (which thresholds are passed)
- * without needing exact coin counters from the save file.
+ * Achievement IDs detect which thresholds are passed (unlocked).
+ * Coin counters from the save file show progress toward the next milestone.
  */
 
 export interface DonationMilestone {
