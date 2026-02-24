@@ -119,6 +119,30 @@ export interface CounterStats {
   bestStreak: number;
 }
 
+export type AchievementCategory =
+  | "items" | "characters" | "challenges" | "co-op-babies"
+  | "starting-items" | "cards-runes" | "stages-bosses" | "milestones";
+
+export interface MissingAchievement {
+  id: number;
+  name: string;
+  unlockDescription: string;
+  category: AchievementCategory;
+}
+
+export interface CategorySummary {
+  category: AchievementCategory;
+  label: string;
+  total: number;
+  unlocked: number;
+  missing: MissingAchievement[];
+}
+
+export interface MissingUnlocksResult {
+  categories: CategorySummary[];
+  totalMissing: number;
+}
+
 /** Full analysis result passed to UI */
 export interface AnalysisResult {
   dlcLevel: DlcLevel;
@@ -136,4 +160,5 @@ export interface AnalysisResult {
   bestiary: BestiaryEntry[];
   bestiaryEncountered: number;
   bestiaryTotal: number;
+  missingUnlocks: MissingUnlocksResult;
 }

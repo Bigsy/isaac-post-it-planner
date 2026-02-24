@@ -136,6 +136,43 @@ export function rewardWikiUrl(name: string): string | null {
   return wikiUrl(name);
 }
 
+// --- Achievement overrides ---
+
+/** Achievements that don't have meaningful standalone wiki pages */
+const ACHIEVEMENT_SKIP = new Set([
+  "Golden God!",
+  "Dead God",
+  "The Real Platinum God",
+  "Platinum God!",
+  "1001%",
+  "1000000%",
+  "2 new pills",
+  "Everything Is Terrible!!!",
+  "Everything is Terrible 2!!!",
+  "DELETE THIS",
+  "RERUN",
+  "Generosity",
+  "Mega",
+  "Hat trick!",
+  "INVALID_DESCRIPTION",
+]);
+
+/** Achievement names that need wiki path overrides */
+const ACHIEVEMENT_NAME_OVERRIDES: Record<string, string> = {
+  "???": "Blue_Baby",
+  "???'s Soul": "%3F%3F%3F%27s_Soul",
+  "???'s Only Friend": "%3F%3F%3F%27s_Only_Friend",
+  "Soul of\u00a0???": "Soul_of_%3F%3F%3F",
+};
+
+export function achievementWikiUrl(name: string): string | null {
+  if (ACHIEVEMENT_SKIP.has(name)) return null;
+  if (name in ACHIEVEMENT_NAME_OVERRIDES) {
+    return WIKI_BASE + ACHIEVEMENT_NAME_OVERRIDES[name];
+  }
+  return wikiUrl(name);
+}
+
 // --- HTML helpers ---
 
 export function wikiLink(url: string | null, text: string): string {
@@ -151,4 +188,6 @@ export {
   TAINTED_BOSS_NAME_OVERRIDES,
   CHARACTER_OVERRIDES,
   REWARD_SKIP,
+  ACHIEVEMENT_SKIP,
+  ACHIEVEMENT_NAME_OVERRIDES,
 };

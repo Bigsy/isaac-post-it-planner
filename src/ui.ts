@@ -6,6 +6,7 @@ import type {
   LaneRecommendation,
   BestiaryEntry,
   Lane,
+  MissingUnlocksResult,
 } from "./types";
 import { BOSS_SHORT_NAME } from "./data/characters";
 import { TAINTED_BOSS_SHORT_NAMES } from "./data/tainted-marks";
@@ -15,6 +16,7 @@ import {
   characterWikiUrl,
   challengeWikiUrl,
   rewardWikiUrl,
+  achievementWikiUrl,
   wikiLink,
 } from "./data/wiki";
 
@@ -355,6 +357,51 @@ function renderBestiary(result: AnalysisResult): void {
   `;
 }
 
+function renderMissingUnlocks(missingUnlocks: MissingUnlocksResult): void {
+  const container = document.getElementById("missing-unlocks");
+  if (!container) return;
+
+  if (missingUnlocks.totalMissing === 0) {
+    container.innerHTML = `<p class="empty">All achievements unlocked!</p>`;
+    return;
+  }
+
+  let html = "";
+  for (const cat of missingUnlocks.categories) {
+    if (cat.total === 0) continue;
+
+    const isComplete = cat.missing.length === 0;
+    const pctVal = pct(cat.unlocked, cat.total);
+    const openAttr = !isComplete && cat.missing.length <= 10 ? " open" : "";
+    const completeClass = isComplete ? " complete" : "";
+
+    let entriesHtml = "";
+    if (!isComplete) {
+      entriesHtml = `<div class="unlock-entries">`;
+      for (const ach of cat.missing) {
+        const url = achievementWikiUrl(ach.name);
+        const nameHtml = wikiLink(url, ach.name);
+        entriesHtml += `<div class="unlock-entry"><span class="unlock-name">${nameHtml}</span><span class="unlock-how">${ach.unlockDescription}</span></div>`;
+      }
+      entriesHtml += `</div>`;
+    }
+
+    html += `
+      <details class="unlock-category${completeClass}"${openAttr}>
+        <summary>
+          <span class="category-progress">
+            ${isComplete ? "&#10003; " : ""}${cat.label}
+            <span class="progress-bar"><span class="progress-fill" style="width:${pctVal}%"></span></span>
+            <span class="progress-text">${cat.unlocked}/${cat.total}</span>
+          </span>
+        </summary>
+        ${entriesHtml}
+      </details>`;
+  }
+
+  container.innerHTML = html;
+}
+
 export function renderResults(result: AnalysisResult): void {
   $("upload-section").classList.add("collapsed");
   $("results").classList.remove("hidden");
@@ -377,6 +424,7 @@ export function renderResults(result: AnalysisResult): void {
 
   renderLaneRecommendations(result.laneRecommendations);
   renderChallenges(result.challenges);
+  renderMissingUnlocks(result.missingUnlocks);
   renderBestiary(result);
 }
 

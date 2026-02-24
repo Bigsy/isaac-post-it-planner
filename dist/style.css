@@ -345,6 +345,71 @@ tr.complete .char-name { color: var(--green); }
 .bestiary-table tr.not-encountered td { color: var(--grey); }
 .bestiary-table tr.not-encountered td:first-child { color: var(--text-dim); }
 
+/* Missing Unlocks */
+.unlock-category { margin-top: 0.5rem; }
+.unlock-category summary {
+  cursor: pointer;
+  color: var(--text);
+  font-weight: 600;
+  font-size: 0.95rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--bg-surface);
+  border-radius: 6px;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.unlock-category summary::-webkit-details-marker { display: none; }
+.unlock-category summary::before { content: "▸ "; color: var(--text-dim); flex-shrink: 0; }
+.unlock-category[open] summary::before { content: "▾ "; }
+.unlock-category[open] summary { border-radius: 6px 6px 0 0; }
+.unlock-category.complete summary { color: var(--green); }
+
+.category-progress {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.category-progress .progress-bar {
+  flex: 1;
+  height: 6px;
+  background: var(--grey);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 0;
+}
+.category-progress .progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
+  transition: width 0.5s;
+}
+.category-progress .progress-text {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.unlock-entries {
+  background: var(--bg-card);
+  border-radius: 0 0 6px 6px;
+  padding: 0.5rem 0;
+}
+.unlock-entry {
+  padding: 0.35rem 1rem;
+  font-size: 0.85rem;
+  border-bottom: 1px solid rgba(85, 85, 104, 0.2);
+}
+.unlock-entry:last-child { border-bottom: none; }
+.unlock-entry .unlock-name { font-weight: 600; }
+.unlock-entry .unlock-how {
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  margin-left: 0.5rem;
+}
+
 /* Wiki links */
 .wiki-link {
   color: inherit;

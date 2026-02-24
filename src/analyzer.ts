@@ -27,6 +27,7 @@ import { CHALLENGE_PREREQS } from "./data/challenge-prereqs";
 import { getChallengeTier } from "./data/challenge-tiers";
 import { GUARDRAILS } from "./data/guardrails";
 import { BESTIARY_ENTITIES, BESTIARY_TOTAL } from "./data/bestiary";
+import { analyzeMissingUnlocks } from "./data/achievement-categories";
 
 function getUnlockedIds(achievements: number[]): Set<number> {
   const ids = new Set<number>();
@@ -640,6 +641,7 @@ export function analyze(saveData: SaveData): AnalysisResult {
 
   const bestiaryEntries = analyzeBestiary(saveData.bestiary);
   const bestiaryEncountered = bestiaryEntries.filter((e) => e.encountered > 0).length;
+  const missingUnlocks = analyzeMissingUnlocks(unlocked, maxAchId);
 
   return {
     dlcLevel,
@@ -657,6 +659,7 @@ export function analyze(saveData: SaveData): AnalysisResult {
     bestiary: bestiaryEntries,
     bestiaryEncountered,
     bestiaryTotal: bestiaryEntries.length > 0 ? BESTIARY_TOTAL : 0,
+    missingUnlocks,
   };
 }
 
