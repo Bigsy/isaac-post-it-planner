@@ -679,8 +679,8 @@ function evaluateCompletionMarks(
     });
   }
 
-  // Toxic guardrail warnings (up to 3)
-  for (const toxic of toxicMarks.slice(0, 3)) {
+  // Toxic guardrail warnings (up to 5)
+  for (const toxic of toxicMarks.slice(0, 5)) {
     recs.push({
       lane: "guardrail",
       target: `Pool Warning: ${toxic.itemName}`,

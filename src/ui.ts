@@ -7,7 +7,10 @@ import type {
   BestiaryEntry,
   Lane,
   MissingUnlocksResult,
+  PhaseProgress,
 } from "./types";
+import type { ProgressionPhase } from "./data/phases";
+import type { ItemQuality } from "./data/item-values";
 import { BOSS_SHORT_NAME } from "./data/characters";
 import { TAINTED_BOSS_SHORT_NAMES } from "./data/tainted-marks";
 import { DLC_LABELS } from "./data/dlc";
@@ -191,85 +194,154 @@ const LANE_BADGE_CLASS: Record<Lane, string> = {
   "guardrail": "opt",
 };
 
-function renderLaneRecommendations(recs: LaneRecommendation[]): void {
-  const container = document.getElementById("lane-recommendations");
-  if (!container) return;
+function renderPhaseProgress(phase: PhaseProgress | undefined): void {
+  const section = document.getElementById("phase-section");
+  const container = document.getElementById("phase-progress");
+  if (!section || !container) return;
+
+  if (!phase) {
+    section.classList.add("hidden");
+    return;
+  }
+  section.classList.remove("hidden");
+
+  const criteriaHtml = phase.criteria
+    .map(
+      (c) =>
+        `<li class="phase-criterion ${c.met ? "met" : "unmet"}">${c.description}</li>`,
+    )
+    .join("");
+
+  container.innerHTML = `
+    <div class="phase-banner">
+      <div class="phase-header">
+        <span class="phase-label">Current Phase</span>
+        <span class="phase-name">${phase.phaseName}</span>
+      </div>
+      <div class="phase-description">${phase.phaseDescription}</div>
+      <ul class="phase-criteria">${criteriaHtml}</ul>
+    </div>
+  `;
+}
+
+function partitionRecommendations(
+  recs: LaneRecommendation[],
+  currentPhase?: ProgressionPhase,
+): { warnings: LaneRecommendation[]; critical: LaneRecommendation[]; secondary: LaneRecommendation[] } {
+  const warnings: LaneRecommendation[] = [];
+  const critical: LaneRecommendation[] = [];
+  const secondary: LaneRecommendation[] = [];
+
+  for (const r of recs) {
+    if (r.isToxicWarning || r.lane === "guardrail") {
+      warnings.push(r);
+    } else if (
+      (r.lane === "progression-gate" && r.blockedBy.length === 0 && (!currentPhase || r.phase === currentPhase)) ||
+      (currentPhase && r.phase === currentPhase)
+    ) {
+      critical.push(r);
+    } else {
+      secondary.push(r);
+    }
+  }
+
+  return { warnings, critical, secondary };
+}
+
+function renderItemBadge(quality?: ItemQuality, name?: string): string {
+  if (!quality) return "";
+  const title = name ? ` title="${name}"` : "";
+  return `<span class="item-badge ${quality}"${title}>${quality}</span>`;
+}
+
+function renderRecCard(r: LaneRecommendation): string {
+  const laneBadge = `<span class="badge ${LANE_BADGE_CLASS[r.lane]}">${LANE_LABELS[r.lane]}</span>`;
+  const itemBadge = renderItemBadge(r.itemQuality, r.itemName);
+  const blockedHtml =
+    r.blockedBy.length > 0
+      ? `<div class="blocked-by">Blocked: ${r.blockedBy.map((b) => b.description).join("; ")}</div>`
+      : "";
+  const toxicClass = r.isToxicWarning ? " toxic-warning" : "";
+  return `
+    <div class="rec-card lane-${r.lane}${toxicClass}">
+      <div class="rec-header">${laneBadge}${itemBadge} ${r.target}</div>
+      <div class="rec-reason">${r.whyNow}</div>
+      ${blockedHtml}
+    </div>`;
+}
+
+function renderPathRecommendations(
+  recs: LaneRecommendation[],
+  currentPhase?: ProgressionPhase,
+  phaseName?: string,
+): void {
+  const warningsEl = document.getElementById("warnings");
+  const criticalEl = document.getElementById("critical-path");
+  const secondaryEl = document.getElementById("secondary-path");
+  if (!warningsEl || !criticalEl || !secondaryEl) return;
 
   if (recs.length === 0) {
-    container.innerHTML = `<p class="empty">No recommendations — you're done!</p>`;
+    warningsEl.innerHTML = "";
+    criticalEl.innerHTML = `<p class="empty">No recommendations — you're done!</p>`;
+    secondaryEl.innerHTML = "";
     return;
   }
 
-  // Group by lane
-  const byLane = new Map<Lane, LaneRecommendation[]>();
-  for (const r of recs) {
-    const list = byLane.get(r.lane) ?? [];
-    list.push(r);
-    byLane.set(r.lane, list);
+  const { warnings, critical, secondary } = partitionRecommendations(recs, currentPhase);
+
+  // Warnings: toxic panel first, then guardrails
+  let warningsHtml = "";
+  const toxicRecs = warnings.filter((r) => r.isToxicWarning);
+  const guardrails = warnings.filter((r) => r.lane === "guardrail" && !r.isToxicWarning);
+
+  if (toxicRecs.length > 0) {
+    warningsHtml += `<div class="toxic-panel"><div class="toxic-panel-header">Toxic Item Warnings</div>`;
+    for (const r of toxicRecs) {
+      warningsHtml += renderRecCard(r);
+    }
+    warningsHtml += `</div>`;
   }
-
-  // Render top blended recommendations first
-  const actionable = recs.filter((r) => r.lane !== "guardrail");
-  const guardrails = recs.filter((r) => r.lane === "guardrail");
-  const topRecs = actionable.slice(0, 10);
-
-  let html = "";
-
-  // Guardrails panel
   if (guardrails.length > 0) {
-    html += `<div class="guardrails-panel">`;
+    warningsHtml += `<div class="guardrails-panel">`;
     for (const g of guardrails) {
-      const icon = g.whyNow.length > 0 ? "" : "";
-      html += `<div class="guardrail-item"><strong>${g.target}</strong><p>${g.whyNow}</p></div>`;
+      warningsHtml += `<div class="guardrail-item"><strong>${g.target}</strong><p>${g.whyNow}</p></div>`;
     }
-    html += `</div>`;
+    warningsHtml += `</div>`;
   }
+  warningsEl.innerHTML = warningsHtml;
 
-  // Top recommendations
-  html += `<h3>Top Recommendations</h3>`;
-  for (const r of topRecs) {
-    const badge = `<span class="badge ${LANE_BADGE_CLASS[r.lane]}">${LANE_LABELS[r.lane]}</span>`;
-    const blockedHtml =
-      r.blockedBy.length > 0
-        ? `<div class="blocked-by">Blocked: ${r.blockedBy.map((b) => b.description).join("; ")}</div>`
-        : "";
-    html += `
-      <div class="rec-card lane-${r.lane}">
-        <div class="rec-header">${badge} ${r.target}</div>
-        <div class="rec-reason">${r.whyNow}</div>
-        ${blockedHtml}
-      </div>`;
-  }
-
-  // Lane sections (collapsible)
-  const laneOrder: Lane[] = [
-    "progression-gate",
-    "character-unlock",
-    "completion-mark",
-    "challenge",
-    "donation",
-  ];
-  for (const lane of laneOrder) {
-    const laneRecs = byLane.get(lane);
-    if (!laneRecs || laneRecs.length === 0) continue;
-
-    html += `<details class="lane-section"><summary>${LANE_LABELS[lane]} (${laneRecs.length})</summary>`;
-    for (const r of laneRecs) {
-      const blockedHtml =
-        r.blockedBy.length > 0
-          ? `<div class="blocked-by">Blocked: ${r.blockedBy.map((b) => b.description).join("; ")}</div>`
-          : "";
-      html += `
-        <div class="rec-card lane-${r.lane}">
-          <div class="rec-header">${r.target}</div>
-          <div class="rec-reason">${r.whyNow}</div>
-          ${blockedHtml}
-        </div>`;
+  // Critical Path: top 8
+  let criticalHtml = "";
+  if (critical.length > 0) {
+    const heading = phaseName ? `Critical Path: ${phaseName}` : "Critical Path";
+    criticalHtml += `<div class="path-group"><div class="path-group-header">${heading}</div>`;
+    for (const r of critical.slice(0, 8)) {
+      criticalHtml += renderRecCard(r);
     }
-    html += `</details>`;
+    criticalHtml += `</div>`;
+  }
+  criticalEl.innerHTML = criticalHtml;
+
+  // Secondary: top 10
+  let secondaryHtml = "";
+  if (secondary.length > 0) {
+    secondaryHtml += `<div class="path-group"><div class="path-group-header">Also Worth Doing</div>`;
+    for (const r of secondary.slice(0, 10)) {
+      secondaryHtml += renderRecCard(r);
+    }
+    secondaryHtml += `</div>`;
   }
 
-  container.innerHTML = html;
+  // All Recommendations: collapsed toggle with full actionable list
+  const actionable = recs.filter((r) => r.lane !== "guardrail" && !r.isToxicWarning);
+  if (actionable.length > 0) {
+    secondaryHtml += `<details class="lane-section"><summary>All Recommendations (${actionable.length})</summary>`;
+    for (const r of actionable) {
+      secondaryHtml += renderRecCard(r);
+    }
+    secondaryHtml += `</details>`;
+  }
+  secondaryEl.innerHTML = secondaryHtml;
 }
 
 function renderChallenges(challenges: ChallengeInfo[]): void {
@@ -357,6 +429,66 @@ function renderBestiary(result: AnalysisResult): void {
   `;
 }
 
+function renderCompletionDashboard(result: AnalysisResult): void {
+  const container = document.getElementById("completion-dashboard");
+  if (!container) return;
+
+  const baseMarks = result.completionGrid.reduce((a, c) => a + c.done, 0);
+  const baseTotal = result.completionGrid.reduce((a, c) => a + c.total, 0);
+  const taintedMarks = result.taintedCompletionGrid.reduce((a, c) => a + c.done, 0);
+  const taintedTotal = result.taintedCompletionGrid.reduce((a, c) => a + c.total, 0);
+  const completedChallenges = result.challenges.filter((c) => c.completed).length;
+  const unlockedBase = result.baseCharacters.filter((c) => c.unlocked).length;
+  const unlockedTainted = result.taintedCharacters.filter((c) => c.unlocked).length;
+
+  let html = `<div class="stat-grid">`;
+  html += `
+    <div class="stat-card">
+      <div class="stat-value">${result.unlockedCount}/${result.totalAchievements}</div>
+      <div class="stat-label">Achievements (${pct(result.unlockedCount, result.totalAchievements)}%)</div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${pct(result.unlockedCount, result.totalAchievements)}%"></div></div>
+    </div>`;
+  if (baseTotal > 0) {
+    html += `
+    <div class="stat-card">
+      <div class="stat-value">${baseMarks}/${baseTotal}</div>
+      <div class="stat-label">Base Marks (${pct(baseMarks, baseTotal)}%)</div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${pct(baseMarks, baseTotal)}%"></div></div>
+    </div>`;
+  }
+  if (taintedTotal > 0) {
+    html += `
+    <div class="stat-card">
+      <div class="stat-value">${taintedMarks}/${taintedTotal}</div>
+      <div class="stat-label">Tainted Marks (${pct(taintedMarks, taintedTotal)}%)</div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${pct(taintedMarks, taintedTotal)}%"></div></div>
+    </div>`;
+  }
+  html += `
+    <div class="stat-card">
+      <div class="stat-value">${completedChallenges}/${result.challenges.length}</div>
+      <div class="stat-label">Challenges (${pct(completedChallenges, result.challenges.length)}%)</div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${pct(completedChallenges, result.challenges.length)}%"></div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">${unlockedBase + unlockedTainted}/${result.baseCharacters.length + result.taintedCharacters.length}</div>
+      <div class="stat-label">Characters Unlocked</div>
+    </div>`;
+  if (result.bestiaryTotal > 0) {
+    html += `
+    <div class="stat-card">
+      <div class="stat-value">${result.bestiaryEncountered}/${result.bestiaryTotal}</div>
+      <div class="stat-label">Bestiary (${pct(result.bestiaryEncountered, result.bestiaryTotal)}%)</div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${pct(result.bestiaryEncountered, result.bestiaryTotal)}%"></div></div>
+    </div>`;
+  }
+  html += `</div>`;
+
+  container.innerHTML = html;
+}
+
+const DEDUPLICATED_CATEGORIES = new Set(["characters", "challenges"]);
+
 function renderMissingUnlocks(missingUnlocks: MissingUnlocksResult): void {
   const container = document.getElementById("missing-unlocks");
   if (!container) return;
@@ -369,10 +501,11 @@ function renderMissingUnlocks(missingUnlocks: MissingUnlocksResult): void {
   let html = "";
   for (const cat of missingUnlocks.categories) {
     if (cat.total === 0) continue;
+    if (DEDUPLICATED_CATEGORIES.has(cat.category)) continue;
 
     const isComplete = cat.missing.length === 0;
     const pctVal = pct(cat.unlocked, cat.total);
-    const openAttr = !isComplete && cat.missing.length <= 10 ? " open" : "";
+    const openAttr = "";
     const completeClass = isComplete ? " complete" : "";
 
     let entriesHtml = "";
@@ -408,7 +541,9 @@ export function renderResults(result: AnalysisResult): void {
 
   renderDlcBadge(result);
   renderOverview(result);
-  renderCharacterUnlocks(result);
+  renderPhaseProgress(result.phaseProgress);
+  renderPathRecommendations(result.laneRecommendations, result.phaseProgress?.currentPhase, result.phaseProgress?.phaseName);
+  renderCompletionDashboard(result);
   renderCompletionGrid(result.completionGrid);
 
   // Conditionally show/hide tainted section
@@ -422,10 +557,10 @@ export function renderResults(result: AnalysisResult): void {
     }
   }
 
-  renderLaneRecommendations(result.laneRecommendations);
   renderChallenges(result.challenges);
-  renderMissingUnlocks(result.missingUnlocks);
+  renderCharacterUnlocks(result);
   renderBestiary(result);
+  renderMissingUnlocks(result.missingUnlocks);
 }
 
 export function showError(message: string): void {
