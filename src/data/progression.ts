@@ -1,3 +1,5 @@
+import type { CounterStats } from "../types";
+
 /**
  * Progression gates — major route gates that block downstream content.
  *
@@ -16,7 +18,7 @@ export interface ProgressionGate {
   name: string;
   description: string;
   achievementIds: number[];
-  counterCheck?: { field: string; threshold: number };
+  counterCheck?: { field: keyof CounterStats; threshold: number };
   opens: string;
   blockedBy: string[];
 }
@@ -106,3 +108,17 @@ export const PROGRESSION_GATES: ProgressionGate[] = [
     blockedBy: ["alt-path"],
   },
 ];
+
+export function isGateCleared(
+  gate: ProgressionGate,
+  unlocked: Set<number>,
+  stats: CounterStats,
+): boolean {
+  if (gate.achievementIds.length > 0) {
+    return gate.achievementIds.every((id) => unlocked.has(id));
+  }
+  if (gate.counterCheck) {
+    return stats[gate.counterCheck.field] >= gate.counterCheck.threshold;
+  }
+  return false;
+}

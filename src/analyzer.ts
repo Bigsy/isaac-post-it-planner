@@ -24,7 +24,7 @@ import {
 } from "./data/characters";
 import { CHALLENGE_NAMES, CHALLENGE_REWARDS } from "./data/challenges";
 import { TAINTED_COMPLETION_MARKS, TAINTED_BOSS_NAMES } from "./data/tainted-marks";
-import { PROGRESSION_GATES } from "./data/progression";
+import { PROGRESSION_GATES, isGateCleared } from "./data/progression";
 import { GREED_DONATION_MILESTONES, NORMAL_DONATION_MILESTONES } from "./data/donation";
 import { CHALLENGE_PREREQS } from "./data/challenge-prereqs";
 import { getChallengeTier } from "./data/challenge-tiers";
@@ -35,6 +35,8 @@ import { detectPhase, PHASE_DEFINITIONS, dlcAtLeast } from "./data/phases";
 import { getItemValue, QUALITY_SCORE } from "./data/item-values";
 import { getBossPriority } from "./data/boss-order";
 import { characterItemValue, bestRemainingMark } from "./data/character-value";
+import { achievementWikiUrl } from "./data/wiki";
+import { buildRunPlans } from "./run-planner";
 
 function getUnlockedIds(achievements: number[]): Set<number> {
   const ids = new Set<number>();
@@ -83,14 +85,20 @@ function analyzePhaseProgress(
   const applicableCriteria = phaseDef.completionCriteria.filter(
     c => !c.requiredDlc || dlcAtLeast(dlcLevel, c.requiredDlc),
   );
-  const criteria = applicableCriteria.map(c => ({
-    description: c.description,
-    met: c.type === "achievement" && c.achievementId != null
+  const criteria = applicableCriteria.map(c => {
+    const met = c.type === "achievement" && c.achievementId != null
       ? unlocked.has(c.achievementId)
       : c.type === "counter-threshold" && c.counterField && c.counterThreshold != null
         ? stats[c.counterField] >= c.counterThreshold
-        : false,
-  }));
+        : false;
+    const ach = c.achievementId != null ? getAchievement(c.achievementId) : null;
+    return {
+      description: c.description,
+      met,
+      howTo: ach?.unlockDescription,
+      wikiUrl: ach ? achievementWikiUrl(ach.name) ?? undefined : undefined,
+    };
+  });
   return {
     currentPhase,
     phaseName: phaseDef.name,
@@ -211,20 +219,6 @@ function checkBlockingDeps(
   }));
   const unmet = deps.filter((d) => !d.met);
   return { deps: unmet, depth: unmet.length };
-}
-
-function isGateCleared(
-  gate: typeof PROGRESSION_GATES[number],
-  unlocked: Set<number>,
-  stats: CounterStats,
-): boolean {
-  if (gate.achievementIds.length > 0) {
-    return gate.achievementIds.every((id) => unlocked.has(id));
-  }
-  if (gate.counterCheck) {
-    return (stats as any)[gate.counterCheck.field] >= gate.counterCheck.threshold;
-  }
-  return false;
 }
 
 const GATE_PHASE_MAP: Record<string, ProgressionPhase> = {
@@ -940,6 +934,32 @@ export function analyze(saveData: SaveData): AnalysisResult {
   const laneRecommendations = generateLaneRecommendations(
     unlocked, stats, completionGrid, taintedCompletionGrid, challenges, maxAchId, dlcLevel,
   );
+  const availableCharacters = new Set<string>();
+  for (const char of completionGrid) {
+    const unlockEntry = Object.entries(BASE_CHARACTER_UNLOCKS)
+      .find(([, name]) => name === char.name || (name === "Jacob & Esau" && char.name === "Jacob"));
+    if (!unlockEntry || unlocked.has(Number(unlockEntry[0]))) {
+      availableCharacters.add(char.name);
+    }
+  }
+  for (const char of taintedCompletionGrid) {
+    const unlockEntry = Object.entries(TAINTED_CHARACTER_UNLOCKS)
+      .find(([, name]) => name === char.name);
+    if (unlockEntry && unlocked.has(Number(unlockEntry[0]))) {
+      availableCharacters.add(char.name);
+    }
+  }
+  const runPlans = buildRunPlans(
+    completionGrid,
+    taintedCompletionGrid,
+    unlocked,
+    availableCharacters,
+    phaseProgress,
+    PROGRESSION_GATES,
+    stats,
+    dlcLevel,
+    maxAchId,
+  );
 
   const bestiaryEntries = analyzeBestiary(saveData.bestiary);
   const bestiaryEncountered = bestiaryEntries.filter((e) => e.encountered > 0).length;
@@ -958,6 +978,7 @@ export function analyze(saveData: SaveData): AnalysisResult {
     taintedCompletionGrid,
     challenges,
     laneRecommendations,
+    runPlans,
     bestiary: bestiaryEntries,
     bestiaryEncountered,
     bestiaryTotal: bestiaryEntries.length > 0 ? BESTIARY_TOTAL : 0,

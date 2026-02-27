@@ -13,6 +13,10 @@ export function wikiUrl(name: string): string {
   return WIKI_BASE + wikiPath(name);
 }
 
+export function routeWikiUrl(wikiPathName: string): string {
+  return wikiUrl(wikiPathName);
+}
+
 // --- Boss overrides ---
 
 /** Maps BOSS_NAMES to wiki page paths (null = skip, no single page) */

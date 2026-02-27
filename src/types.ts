@@ -154,7 +154,44 @@ export interface PhaseProgress {
   currentPhase: ProgressionPhase;
   phaseName: string;
   phaseDescription: string;
-  criteria: { description: string; met: boolean }[];
+  criteria: {
+    description: string;
+    met: boolean;
+    howTo?: string;
+    wikiUrl?: string;
+  }[];
+}
+
+export interface RunGoal {
+  type: "completion-mark" | "gate-progress" | "phase-criterion";
+  boss: string;
+  achievementId?: number;
+  itemName?: string;
+  itemQuality?: ItemQuality;
+  description: string;
+  isBundled?: boolean;
+}
+
+export interface RunPlan {
+  character: string;
+  isTainted: boolean;
+  route: string;
+  routeId: string;
+  routeWikiPath: string;
+  whyThisRun: string;
+  goals: RunGoal[];
+  primaryGoal: RunGoal;
+  scoreBreakdown: {
+    markScore: number;
+    gateBonus: number;
+    phaseBonus: number;
+    timedPenalty: number;
+    bundledPenalty: number;
+  };
+  score: number;
+  phase?: ProgressionPhase;
+  timed: boolean;
+  greedMode: boolean;
 }
 
 /** Full analysis result passed to UI */
@@ -171,6 +208,7 @@ export interface AnalysisResult {
   taintedCompletionGrid: TaintedCharacterProgress[];
   challenges: ChallengeInfo[];
   laneRecommendations: LaneRecommendation[];
+  runPlans: RunPlan[];
   bestiary: BestiaryEntry[];
   bestiaryEncountered: number;
   bestiaryTotal: number;

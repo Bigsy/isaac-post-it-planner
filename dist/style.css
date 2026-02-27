@@ -190,6 +190,53 @@ tr.complete .char-name { color: var(--green); }
 .rec-header { font-weight: 600; }
 .rec-reason { color: var(--text-dim); font-size: 0.85rem; margin-top: 0.2rem; }
 
+.run-plan {
+  background: var(--bg-card);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.75rem;
+  border-left: 3px solid var(--accent);
+}
+.run-plan-header {
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.run-arrow { color: var(--text-dim); }
+.run-timed {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  background: var(--bg-surface);
+  padding: 0.1em 0.4em;
+  border-radius: 3px;
+}
+.run-goals {
+  margin-top: 0.4rem;
+  padding-left: 0.5rem;
+}
+.run-goal {
+  font-size: 0.85rem;
+  color: var(--text);
+  padding: 0.15rem 0;
+}
+.run-goal.primary { font-weight: 600; }
+.run-goal.gate, .run-goal.bundled {
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  font-style: italic;
+}
+.run-goal.note,
+.run-why {
+  color: var(--text-dim);
+  font-size: 0.8rem;
+}
+.run-goal-boss {
+  color: var(--text-dim);
+  margin-right: 0.3rem;
+}
+
 .badge {
   display: inline-block;
   font-size: 0.65rem;
@@ -485,6 +532,24 @@ footer {
 .phase-criterion.met::before { content: "\2713"; }
 .phase-criterion.unmet { color: var(--red); }
 .phase-criterion.unmet::before { content: "\2717"; }
+.phase-how-to {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  margin-left: 1.5em;
+}
+.rec-wiki-link {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  margin-left: 0.3rem;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+}
+.rec-wiki-link:hover {
+  text-decoration-style: solid;
+  filter: brightness(1.2);
+}
 
 /* Item quality badges */
 .item-badge {

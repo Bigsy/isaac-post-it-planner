@@ -8,17 +8,21 @@ import type {
   Lane,
   MissingUnlocksResult,
   PhaseProgress,
+  RunGoal,
+  RunPlan,
 } from "./types";
 import type { ProgressionPhase } from "./data/phases";
 import type { ItemQuality } from "./data/item-values";
 import { BOSS_SHORT_NAME } from "./data/characters";
 import { TAINTED_BOSS_SHORT_NAMES } from "./data/tainted-marks";
 import { DLC_LABELS } from "./data/dlc";
+import { getAchievement } from "./data/achievements";
 import {
   bossWikiUrl,
   characterWikiUrl,
   challengeWikiUrl,
   rewardWikiUrl,
+  routeWikiUrl,
   achievementWikiUrl,
   wikiLink,
 } from "./data/wiki";
@@ -206,10 +210,11 @@ function renderPhaseProgress(phase: PhaseProgress | undefined): void {
   section.classList.remove("hidden");
 
   const criteriaHtml = phase.criteria
-    .map(
-      (c) =>
-        `<li class="phase-criterion ${c.met ? "met" : "unmet"}">${c.description}</li>`,
-    )
+    .map((c) => {
+      const descHtml = c.wikiUrl ? wikiLink(c.wikiUrl, c.description) : c.description;
+      const howToHtml = c.howTo ? `<span class="phase-how-to">${c.howTo}</span>` : "";
+      return `<li class="phase-criterion ${c.met ? "met" : "unmet"}">${descHtml}${howToHtml}</li>`;
+    })
     .join("");
 
   container.innerHTML = `
@@ -227,13 +232,16 @@ function renderPhaseProgress(phase: PhaseProgress | undefined): void {
 function partitionRecommendations(
   recs: LaneRecommendation[],
   currentPhase?: ProgressionPhase,
-): { warnings: LaneRecommendation[]; critical: LaneRecommendation[]; secondary: LaneRecommendation[] } {
+): { warnings: LaneRecommendation[]; critical: LaneRecommendation[]; secondary: LaneRecommendation[]; guardrails: LaneRecommendation[] } {
   const warnings: LaneRecommendation[] = [];
   const critical: LaneRecommendation[] = [];
   const secondary: LaneRecommendation[] = [];
+  const guardrails: LaneRecommendation[] = [];
 
   for (const r of recs) {
-    if (r.isToxicWarning || r.lane === "guardrail") {
+    if (r.lane === "guardrail" && !r.isToxicWarning) {
+      guardrails.push(r);
+    } else if (r.isToxicWarning) {
       warnings.push(r);
     } else if (
       (r.lane === "progression-gate" && r.blockedBy.length === 0 && (!currentPhase || r.phase === currentPhase)) ||
@@ -245,7 +253,7 @@ function partitionRecommendations(
     }
   }
 
-  return { warnings, critical, secondary };
+  return { warnings, critical, secondary, guardrails };
 }
 
 function renderItemBadge(quality?: ItemQuality, name?: string): string {
@@ -262,15 +270,75 @@ function renderRecCard(r: LaneRecommendation): string {
       ? `<div class="blocked-by">Blocked: ${r.blockedBy.map((b) => b.description).join("; ")}</div>`
       : "";
   const toxicClass = r.isToxicWarning ? " toxic-warning" : "";
+  let achievementLink = "";
+  if (r.achievementIds.length > 0) {
+    const ach = getAchievement(r.achievementIds[0]);
+    const url = achievementWikiUrl(ach.name);
+    if (url) {
+      achievementLink = ` <a href="${url}" target="_blank" rel="noopener" class="rec-wiki-link">wiki</a>`;
+    }
+  }
   return `
     <div class="rec-card lane-${r.lane}${toxicClass}">
-      <div class="rec-header">${laneBadge}${itemBadge} ${r.target}</div>
+      <div class="rec-header">${laneBadge}${itemBadge} ${r.target}${achievementLink}</div>
       <div class="rec-reason">${r.whyNow}</div>
       ${blockedHtml}
     </div>`;
 }
 
+function renderRunGoal(goal: RunGoal, isPrimary: boolean): string {
+  const qualityBadge = renderItemBadge(goal.itemQuality, goal.itemName);
+  const baseClass = `run-goal${isPrimary ? " primary" : ""}`;
+
+  if (goal.type === "gate-progress") {
+    return `<div class="${baseClass} gate">${goal.description}</div>`;
+  }
+
+  if (goal.type === "phase-criterion") {
+    return `<div class="${baseClass} note">${goal.description}</div>`;
+  }
+
+  if (goal.isBundled) {
+    return `<div class="${baseClass} bundled">Works toward: ${goal.boss} mark (partial progress unknown)</div>`;
+  }
+
+  const prefix = isPrimary ? "" : "Also: ";
+  const itemPart = goal.itemName ? ` -> ${goal.itemName}` : "";
+  return `<div class="${baseClass}">${prefix}${goal.boss} mark${itemPart} ${qualityBadge}</div>`;
+}
+
+function renderRunPlanCard(plan: RunPlan, currentPhase?: ProgressionPhase, phaseName?: string): string {
+  const characterLink = wikiLink(characterWikiUrl(plan.character), plan.character);
+  const routeLink = wikiLink(routeWikiUrl(plan.routeWikiPath), plan.route);
+  const timedBadge = plan.timed ? `<span class="run-timed">timed</span>` : "";
+  const phaseBadge = currentPhase && plan.phase === currentPhase && phaseName
+    ? `<span class="badge high">${phaseName}</span>`
+    : "";
+  const goals: string[] = [];
+  for (const goal of plan.goals) {
+    goals.push(renderRunGoal(goal, goal === plan.primaryGoal));
+  }
+  if (plan.routeId === "mega-satan-dr" || plan.routeId === "mega-satan-ch") {
+    goals.push(`<div class="run-goal note">Requires Angel Room key pieces in-run</div>`);
+  }
+
+  return `
+    <div class="run-plan">
+      <div class="run-plan-header">
+        <span class="run-character">${characterLink}</span>
+        <span class="run-arrow">-&gt;</span>
+        <span class="run-destination">${routeLink}</span>
+        ${phaseBadge}
+        ${timedBadge}
+      </div>
+      <div class="run-why">${plan.whyThisRun}</div>
+      <div class="run-goals">${goals.join("")}</div>
+    </div>
+  `;
+}
+
 function renderPathRecommendations(
+  runPlans: RunPlan[],
   recs: LaneRecommendation[],
   currentPhase?: ProgressionPhase,
   phaseName?: string,
@@ -280,43 +348,39 @@ function renderPathRecommendations(
   const secondaryEl = document.getElementById("secondary-path");
   if (!warningsEl || !criticalEl || !secondaryEl) return;
 
-  if (recs.length === 0) {
+  if (recs.length === 0 && runPlans.length === 0) {
     warningsEl.innerHTML = "";
     criticalEl.innerHTML = `<p class="empty">No recommendations — you're done!</p>`;
     secondaryEl.innerHTML = "";
     return;
   }
 
-  const { warnings, critical, secondary } = partitionRecommendations(recs, currentPhase);
+  const { warnings, critical, secondary, guardrails } = partitionRecommendations(recs, currentPhase);
 
-  // Warnings: toxic panel first, then guardrails
+  // Warnings: toxic panel only (toxic warnings are urgent — keep at top)
   let warningsHtml = "";
-  const toxicRecs = warnings.filter((r) => r.isToxicWarning);
-  const guardrails = warnings.filter((r) => r.lane === "guardrail" && !r.isToxicWarning);
-
-  if (toxicRecs.length > 0) {
+  if (warnings.length > 0) {
     warningsHtml += `<div class="toxic-panel"><div class="toxic-panel-header">Toxic Item Warnings</div>`;
-    for (const r of toxicRecs) {
+    for (const r of warnings) {
       warningsHtml += renderRecCard(r);
-    }
-    warningsHtml += `</div>`;
-  }
-  if (guardrails.length > 0) {
-    warningsHtml += `<div class="guardrails-panel">`;
-    for (const g of guardrails) {
-      warningsHtml += `<div class="guardrail-item"><strong>${g.target}</strong><p>${g.whyNow}</p></div>`;
     }
     warningsHtml += `</div>`;
   }
   warningsEl.innerHTML = warningsHtml;
 
-  // Critical Path: top 8
+  // Critical Path: preferred run plans; fallback to critical lane recommendations
   let criticalHtml = "";
-  if (critical.length > 0) {
+  if (runPlans.length > 0) {
+    criticalHtml += `<div class="path-group"><div class="path-group-header">Suggested Runs</div>`;
+    for (const plan of runPlans.slice(0, 5)) {
+      criticalHtml += renderRunPlanCard(plan, currentPhase, phaseName);
+    }
+    criticalHtml += `</div>`;
+  } else if (critical.length > 0) {
     const heading = phaseName ? `Critical Path: ${phaseName}` : "Critical Path";
     criticalHtml += `<div class="path-group"><div class="path-group-header">${heading}</div>`;
-    for (const r of critical.slice(0, 8)) {
-      criticalHtml += renderRecCard(r);
+    for (const rec of critical.slice(0, 8)) {
+      criticalHtml += renderRecCard(rec);
     }
     criticalHtml += `</div>`;
   }
@@ -330,6 +394,16 @@ function renderPathRecommendations(
       secondaryHtml += renderRecCard(r);
     }
     secondaryHtml += `</div>`;
+  }
+
+  // Guardrails: collapsed below actionable recs
+  if (guardrails.length > 0) {
+    secondaryHtml += `<details class="lane-section"><summary>Tips &amp; Warnings (${guardrails.length})</summary>`;
+    secondaryHtml += `<div class="guardrails-panel">`;
+    for (const g of guardrails) {
+      secondaryHtml += `<div class="guardrail-item"><strong>${g.target}</strong><p>${g.whyNow}</p></div>`;
+    }
+    secondaryHtml += `</div></details>`;
   }
 
   // All Recommendations: collapsed toggle with full actionable list
@@ -542,7 +616,12 @@ export function renderResults(result: AnalysisResult): void {
   renderDlcBadge(result);
   renderOverview(result);
   renderPhaseProgress(result.phaseProgress);
-  renderPathRecommendations(result.laneRecommendations, result.phaseProgress?.currentPhase, result.phaseProgress?.phaseName);
+  renderPathRecommendations(
+    result.runPlans,
+    result.laneRecommendations,
+    result.phaseProgress?.currentPhase,
+    result.phaseProgress?.phaseName,
+  );
   renderCompletionDashboard(result);
   renderCompletionGrid(result.completionGrid);
 

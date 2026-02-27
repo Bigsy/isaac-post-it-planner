@@ -3,6 +3,7 @@ import { readFileSync } from "fs";
 import { join } from "path";
 import { parseSaveFile } from "../src/parser";
 import { analyze } from "../src/analyzer";
+import type { SaveData } from "../src/types";
 
 const SAMPLE_DIR = join(__dirname, "..", "sample-saves");
 
@@ -29,6 +30,9 @@ describe("integration: full pipeline with sample save", () => {
 
     // Lane recommendations generated
     expect(result.laneRecommendations.length).toBeGreaterThan(0);
+    expect(result.runPlans).toBeDefined();
+    expect(result.runPlans.length).toBeGreaterThan(0);
+    expect(result.runPlans.every((p) => p.whyThisRun.trim().length > 0)).toBe(true);
 
     // Lane recommendations span multiple lanes
     const lanes = new Set(result.laneRecommendations.map((r) => r.lane));
@@ -83,6 +87,10 @@ describe("integration: multi-version saves", () => {
     expect(result.completionGrid[0].marks.length).toBe(6);
     expect(result.totalCollectibles).toBeGreaterThan(0);
     expect(result.laneRecommendations.length).toBeGreaterThanOrEqual(0);
+    expect(result.runPlans).toBeDefined();
+    expect(result.runPlans.every((p) => p.routeId !== "corpse")).toBe(true);
+    expect(result.runPlans.every((p) => p.routeId !== "home")).toBe(true);
+    expect(result.runPlans.every((p) => p.routeId !== "greedier")).toBe(true);
   });
 
   it("Afterbirth save produces valid analysis", () => {
@@ -103,6 +111,8 @@ describe("integration: multi-version saves", () => {
     expect(result.taintedCharacters.length).toBe(0);
     expect(result.completionGrid[0].marks.length).toBe(11);
     expect(result.totalCollectibles).toBeGreaterThan(0);
+    expect(result.runPlans.every((p) => p.routeId !== "corpse")).toBe(true);
+    expect(result.runPlans.every((p) => p.routeId !== "home")).toBe(true);
   });
 
   it("Repentance+ save produces valid analysis", () => {
@@ -127,7 +137,28 @@ describe("integration: multi-version saves", () => {
       const result = loadAndAnalyze(file);
       // All saves should produce some recommendations (at minimum guardrails)
       expect(result.laneRecommendations.length).toBeGreaterThanOrEqual(0);
+      expect(result.runPlans).toBeDefined();
     }
+  });
+
+  it("returns no run plans when only single-goal opportunities remain", () => {
+    const allUnlockedSingleGoalSave: SaveData = {
+      dlcLevel: "rebirth",
+      achievements: [0, 1],
+      counters: [],
+      levelCounters: [],
+      collectibles: [],
+      minibosses: [],
+      bosses: [],
+      challenges: [],
+      cutsceneCounters: [],
+      gameSettings: [],
+      specialSeedCounters: [],
+      bestiary: null,
+    };
+    const result = analyze(allUnlockedSingleGoalSave);
+    expect(result.runPlans.length).toBe(0);
+    expect(result.laneRecommendations.length).toBeGreaterThan(0);
   });
 });
 
