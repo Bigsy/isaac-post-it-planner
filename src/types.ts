@@ -1,4 +1,6 @@
 import type { DlcLevel } from "./data/dlc";
+import type { ProgressionPhase } from "./data/phases";
+import type { ItemQuality } from "./data/item-values";
 
 /** Parsed bestiary sub-chunk maps: "entityId_variant" → count */
 export interface BestiaryData {
@@ -85,6 +87,11 @@ export interface LaneRecommendation {
   downstreamValue: number;
   score: number;
   whyNow: string;
+  phase?: ProgressionPhase;
+  itemQuality?: ItemQuality;
+  itemName?: string;
+  isToxicWarning?: boolean;
+  bossPriority?: number;
 }
 
 /** Challenge info */
@@ -143,6 +150,13 @@ export interface MissingUnlocksResult {
   totalMissing: number;
 }
 
+export interface PhaseProgress {
+  currentPhase: ProgressionPhase;
+  phaseName: string;
+  phaseDescription: string;
+  criteria: { description: string; met: boolean }[];
+}
+
 /** Full analysis result passed to UI */
 export interface AnalysisResult {
   dlcLevel: DlcLevel;
@@ -161,4 +175,5 @@ export interface AnalysisResult {
   bestiaryEncountered: number;
   bestiaryTotal: number;
   missingUnlocks: MissingUnlocksResult;
+  phaseProgress?: PhaseProgress;
 }
