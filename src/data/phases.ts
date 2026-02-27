@@ -32,7 +32,7 @@ const DLC_ORDER: DlcLevel[] = [
   "repentance",
 ];
 
-function dlcAtLeast(current: DlcLevel, required: DlcLevel): boolean {
+export function dlcAtLeast(current: DlcLevel, required: DlcLevel): boolean {
   return DLC_ORDER.indexOf(current) >= DLC_ORDER.indexOf(required);
 }
 

@@ -18,8 +18,9 @@ import {
   evaluateDonation,
   evaluateGuardrails,
 } from "../src/analyzer";
-import type { CounterStats, BestiaryData } from "../src/types";
+import type { CounterStats, BestiaryData, PhaseProgress } from "../src/types";
 import { BESTIARY_ENTITIES, BESTIARY_TOTAL } from "../src/data/bestiary";
+import type { ProgressionPhase } from "../src/data/phases";
 
 const SAMPLE_DIR = join(__dirname, "..", "sample-saves");
 const SAMPLE_PATH = join(SAMPLE_DIR, "rep+persistentgamedata1.dat");
@@ -681,5 +682,148 @@ describe("DLC-aware analysis", () => {
         expect(char.marks.length).toBe(6);
       }
     });
+  });
+});
+
+// --- Phase-aware recommendation engine tests ---
+
+describe("phase-aware recommendations", () => {
+  it("phaseProgress returned from analyze()", () => {
+    const result = analyze(loadSample());
+    expect(result.phaseProgress).toBeDefined();
+    const pp = result.phaseProgress!;
+    expect(pp.currentPhase).toBeTruthy();
+    expect(pp.phaseName).toBeTruthy();
+    expect(pp.phaseDescription).toBeTruthy();
+    expect(Array.isArray(pp.criteria)).toBe(true);
+    expect(pp.criteria.length).toBeGreaterThan(0);
+    for (const c of pp.criteria) {
+      expect(typeof c.description).toBe("string");
+      expect(typeof c.met).toBe("boolean");
+    }
+  });
+
+  it("primary fixture is early-game phase", () => {
+    const result = analyze(loadSample());
+    const phase = result.phaseProgress!.currentPhase;
+    expect(["phase-1-foundations", "phase-2-expansion"]).toContain(phase);
+  });
+
+  it("phase-1 gates get phase alignment bonus", () => {
+    const unlocked = new Set<number>();
+    const stats = emptyCounters();
+    // Compare: phase-1 aligned vs non-aligned
+    const phase1Recs = evaluateProgressionGates(unlocked, stats, undefined, "phase-1-foundations");
+    const phase3Recs = evaluateProgressionGates(unlocked, stats, undefined, "phase-3-repentance");
+
+    // "mom" gate is phase-1, so it should score higher when currentPhase is phase-1
+    const momPhase1 = phase1Recs.find((r) => r.target === "Defeat Mom");
+    const momPhase3 = phase3Recs.find((r) => r.target === "Defeat Mom");
+    expect(momPhase1).toBeDefined();
+    expect(momPhase3).toBeDefined();
+    expect(momPhase1!.score).toBeGreaterThan(momPhase3!.score);
+  });
+
+  it("recs include phase field on progression-gate recs", () => {
+    const unlocked = new Set<number>();
+    const recs = evaluateProgressionGates(unlocked, emptyCounters());
+    for (const r of recs) {
+      expect(r.phase).toBeDefined();
+      expect(["phase-1-foundations", "phase-2-expansion", "phase-3-repentance", "phase-4-completion"]).toContain(r.phase);
+    }
+  });
+
+  it("s-tier marks score higher than c-tier for character unlocks", () => {
+    // Azazel (79) has S-tier Maw of the Void (ach 186)
+    // Samson (67) has C-tier Blood Penny (ach 55)
+    // Both unlocked, so we compare their completion mark recs
+    // Create save where Azazel has 1 mark remaining (S-tier) and Samson has 1 mark remaining (C-tier)
+    // Simpler: compare character unlock recs — Azazel unlocks include S-tier items
+    const unlocked = new Set<number>();
+    const recs = evaluateCharacterUnlocks(unlocked);
+    const azazelRec = recs.find((r) => r.target.includes("Azazel"));
+    const eveRec = recs.find((r) => r.target.includes("Eve"));
+    expect(azazelRec).toBeDefined();
+    expect(eveRec).toBeDefined();
+    // Azazel has S-tier marks (Maw of the Void, Devil's Crown), Eve has C-tier (Eve's Mascara)
+    // So Azazel should score higher due to item quality bonus
+    expect(azazelRec!.score).toBeGreaterThan(eveRec!.score);
+  });
+
+  it("toxic marks generate guardrail warnings", () => {
+    // Missing No. is ach 105 (Lazarus vs Boss Rush, index 5)
+    // Lazarus marks: [173, 116, 117, 118, 119, 105, 187, 213, 291, 456, 457, 200, 305]
+    // Need Lazarus to have ≤4 remaining and done > 0, with 105 still missing
+    const done = [173, 116, 117, 118, 119, 187, 213, 291, 456, 457]; // 10 done, 3 remaining (105, 200, 305)
+    const unlocked = new Set(done);
+    const baseGrid = analyzeCompletionMarks(unlocked);
+    const taintedGrid = analyzeTaintedCompletionMarks(unlocked);
+    const recs = evaluateCompletionMarks(unlocked, baseGrid, taintedGrid);
+    const toxicWarnings = recs.filter((r) => r.isToxicWarning && r.lane === "guardrail");
+    expect(toxicWarnings.length).toBeGreaterThan(0);
+    expect(toxicWarnings[0].itemQuality).toBe("toxic");
+    expect(toxicWarnings[0].itemName).toBeTruthy();
+  });
+
+  it("boss priority ordering is set on completion mark recs", () => {
+    // Create a save where Isaac has some marks done (near complete)
+    // Isaac marks: [167, 106, 43, 49, 149, 70, 179, 205, 282, 440, 441, 192, 296]
+    const done = [167, 106, 43, 49, 149, 70, 179, 205, 282]; // 9 done, 4 remaining
+    const unlocked = new Set(done);
+    const baseGrid = analyzeCompletionMarks(unlocked);
+    const taintedGrid = analyzeTaintedCompletionMarks(unlocked);
+    const recs = evaluateCompletionMarks(unlocked, baseGrid, taintedGrid);
+    const isaacRec = recs.find((r) => r.target.includes("Isaac") && r.lane === "completion-mark");
+    expect(isaacRec).toBeDefined();
+    expect(isaacRec!.bossPriority).toBeDefined();
+    expect(typeof isaacRec!.bossPriority).toBe("number");
+  });
+
+  it("mid-progress base characters get per-mark recs", () => {
+    // Isaac marks: [167, 106, 43, 49, 149, 70, 179, 205, 282, 440, 441, 192, 296]
+    // Give Isaac 3 done marks (10 remaining — well above the ≤4 near-complete threshold)
+    const done = [167, 106, 43]; // 3 done, 10 remaining
+    const unlocked = new Set(done);
+    const baseGrid = analyzeCompletionMarks(unlocked);
+    const taintedGrid = analyzeTaintedCompletionMarks(unlocked);
+    const recs = evaluateCompletionMarks(unlocked, baseGrid, taintedGrid);
+    // Should have a per-mark rec for Isaac (in-progress path)
+    const isaacRec = recs.find(
+      (r) => r.lane === "completion-mark" && r.target.includes("Isaac") && r.target.includes("done"),
+    );
+    expect(isaacRec).toBeDefined();
+    expect(isaacRec!.itemQuality).toBeDefined();
+    expect(isaacRec!.itemName).toBeDefined();
+    expect(isaacRec!.bossPriority).toBeDefined();
+    expect(isaacRec!.whyNow).toContain("In progress");
+  });
+
+  it("mid-progress characters do not duplicate near-complete recs", () => {
+    // Isaac with 9 done (4 remaining) should appear in near-complete, not in-progress
+    const done = [167, 106, 43, 49, 149, 70, 179, 205, 282]; // 9 done, 4 remaining
+    const unlocked = new Set(done);
+    const baseGrid = analyzeCompletionMarks(unlocked);
+    const taintedGrid = analyzeTaintedCompletionMarks(unlocked);
+    const recs = evaluateCompletionMarks(unlocked, baseGrid, taintedGrid);
+    const isaacRecs = recs.filter(
+      (r) => r.lane === "completion-mark" && r.target.includes("Isaac"),
+    );
+    // Should be exactly 1 rec (near-complete), not 2
+    expect(isaacRecs.length).toBe(1);
+    expect(isaacRecs[0].whyNow).toContain("marks remaining");
+  });
+
+  it("mid-progress characters collect toxic warnings", () => {
+    // Lazarus marks: [173, 116, 117, 118, 119, 105, 187, 213, 291, 456, 457, 200, 305]
+    // 105 = Missing No. (toxic). Give Lazarus 2 done marks (11 remaining — in-progress)
+    const done = [173, 116]; // 2 done, 11 remaining
+    const unlocked = new Set(done);
+    const baseGrid = analyzeCompletionMarks(unlocked);
+    const taintedGrid = analyzeTaintedCompletionMarks(unlocked);
+    const recs = evaluateCompletionMarks(unlocked, baseGrid, taintedGrid);
+    const toxicWarnings = recs.filter((r) => r.isToxicWarning && r.lane === "guardrail");
+    expect(toxicWarnings.length).toBeGreaterThan(0);
+    const missingNo = toxicWarnings.find((r) => r.itemName === "Missing No.");
+    expect(missingNo).toBeDefined();
   });
 });

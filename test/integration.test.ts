@@ -130,3 +130,45 @@ describe("integration: multi-version saves", () => {
     }
   });
 });
+
+describe("integration: phaseProgress", () => {
+  it("result.phaseProgress exists with valid currentPhase for each DLC", () => {
+    const saves = [
+      "Rebirth_persistentgamedata.dat",
+      "Afterbirth_persistentgamedata.dat",
+      "Afterbirth+_persistentgamedata.dat",
+      "rep+persistentgamedata1.dat",
+      "Repentance+_persistentgamedata.dat",
+    ];
+    const validPhases = [
+      "phase-1-foundations",
+      "phase-2-expansion",
+      "phase-3-repentance",
+      "phase-4-completion",
+    ];
+    for (const file of saves) {
+      const result = loadAndAnalyze(file);
+      expect(result.phaseProgress).toBeDefined();
+      expect(validPhases).toContain(result.phaseProgress!.currentPhase);
+      expect(result.phaseProgress!.phaseName).toBeTruthy();
+      expect(result.phaseProgress!.criteria.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("primary fixture is early-game phase", () => {
+    const result = loadAndAnalyze("rep+persistentgamedata1.dat");
+    // 113/637 achievements should be phase-1 or phase-2
+    expect(["phase-1-foundations", "phase-2-expansion"]).toContain(
+      result.phaseProgress!.currentPhase,
+    );
+  });
+
+  it("Afterbirth save excludes Repentance-only criteria from phase checklist", () => {
+    const result = loadAndAnalyze("Afterbirth_persistentgamedata.dat");
+    const pp = result.phaseProgress!;
+    // Phase 2 has "Alt path (Repentance)" with requiredDlc: "repentance"
+    // Afterbirth save should NOT include that criterion
+    const descriptions = pp.criteria.map(c => c.description);
+    expect(descriptions.every(d => !d.includes("Repentance"))).toBe(true);
+  });
+});

@@ -9,9 +9,12 @@ import type {
   LaneRecommendation,
   BlockingDep,
   EffortLevel,
+  PhaseProgress,
   BestiaryData,
   BestiaryEntry,
 } from "./types";
+import type { DlcLevel } from "./data/dlc";
+import type { ProgressionPhase } from "./data/phases";
 import { getAchievement, TOTAL_ACHIEVEMENTS } from "./data/achievements";
 import {
   BASE_CHARACTER_UNLOCKS,
@@ -28,6 +31,10 @@ import { getChallengeTier } from "./data/challenge-tiers";
 import { GUARDRAILS } from "./data/guardrails";
 import { BESTIARY_ENTITIES, BESTIARY_TOTAL } from "./data/bestiary";
 import { analyzeMissingUnlocks } from "./data/achievement-categories";
+import { detectPhase, PHASE_DEFINITIONS, dlcAtLeast } from "./data/phases";
+import { getItemValue, QUALITY_SCORE } from "./data/item-values";
+import { getBossPriority } from "./data/boss-order";
+import { characterItemValue, bestRemainingMark } from "./data/character-value";
 
 function getUnlockedIds(achievements: number[]): Set<number> {
   const ids = new Set<number>();
@@ -63,6 +70,32 @@ function parseCounterStats(counters: number[]): CounterStats {
     edenTokens: get(21),           // 0x54
     winStreak: get(22),            // 0x58
     bestStreak: get(23),           // 0x5C
+  };
+}
+
+function analyzePhaseProgress(
+  unlocked: Set<number>,
+  stats: CounterStats,
+  dlcLevel: DlcLevel,
+): PhaseProgress {
+  const currentPhase = detectPhase(unlocked, stats, dlcLevel);
+  const phaseDef = PHASE_DEFINITIONS.find(p => p.id === currentPhase)!;
+  const applicableCriteria = phaseDef.completionCriteria.filter(
+    c => !c.requiredDlc || dlcAtLeast(dlcLevel, c.requiredDlc),
+  );
+  const criteria = applicableCriteria.map(c => ({
+    description: c.description,
+    met: c.type === "achievement" && c.achievementId != null
+      ? unlocked.has(c.achievementId)
+      : c.type === "counter-threshold" && c.counterField && c.counterThreshold != null
+        ? stats[c.counterField] >= c.counterThreshold
+        : false,
+  }));
+  return {
+    currentPhase,
+    phaseName: phaseDef.name,
+    phaseDescription: phaseDef.description,
+    criteria,
   };
 }
 
@@ -149,6 +182,8 @@ function computeScore(
   effort: EffortLevel,
   risk: number,
   blockerDepth: number,
+  itemQualityBonus: number = 0,
+  phaseAlignment: number = 0,
 ): number {
   const effortMap: Record<EffortLevel, number> = {
     "single-run": 0.1,
@@ -156,10 +191,12 @@ function computeScore(
     "grind": 0.9,
   };
   const raw =
-    value * 0.45 +
-    readiness * 0.3 -
-    effortMap[effort] * 0.15 -
-    risk * 0.1;
+    value * 0.35 +
+    readiness * 0.25 -
+    effortMap[effort] * 0.10 -
+    risk * 0.05 +
+    itemQualityBonus * 0.15 +
+    phaseAlignment * 0.10;
   return raw * Math.pow(0.7, blockerDepth);
 }
 
@@ -190,10 +227,24 @@ function isGateCleared(
   return false;
 }
 
+const GATE_PHASE_MAP: Record<string, ProgressionPhase> = {
+  "mom": "phase-1-foundations",
+  "it-lives": "phase-1-foundations",
+  "sheol-cathedral": "phase-1-foundations",
+  "polaroid": "phase-1-foundations",
+  "negative": "phase-1-foundations",
+  "blue-womb": "phase-2-expansion",
+  "mega-satan": "phase-2-expansion",
+  "void-delirium": "phase-2-expansion",
+  "alt-path": "phase-3-repentance",
+  "home-beast": "phase-3-repentance",
+};
+
 function evaluateProgressionGates(
   unlocked: Set<number>,
   stats: CounterStats,
   maxAchId: number = TOTAL_ACHIEVEMENTS,
+  currentPhase: ProgressionPhase = "phase-1-foundations",
 ): LaneRecommendation[] {
   const recs: LaneRecommendation[] = [];
 
@@ -229,12 +280,17 @@ function evaluateProgressionGates(
       g.blockedBy.includes(gate.id),
     ).length;
 
+    const gatePhase = GATE_PHASE_MAP[gate.id] ?? "phase-4-completion";
+    const alignment = gatePhase === currentPhase ? 0.3 : 0;
+
     const score = computeScore(
       Math.min(downstream / 5, 1), // normalize: 5 downstream = max value
       depth === 0 ? 0.8 : 0.2,
       depth === 0 ? "multi-run" : "grind",
       0.1,
       depth,
+      0,
+      alignment,
     );
 
     recs.push({
@@ -247,6 +303,7 @@ function evaluateProgressionGates(
       downstreamValue: downstream,
       score,
       whyNow: `Opens: ${gate.opens}`,
+      phase: gatePhase,
     });
   }
 
@@ -256,19 +313,31 @@ function evaluateProgressionGates(
 function evaluateCharacterUnlocks(
   unlocked: Set<number>,
   maxAchId: number = TOTAL_ACHIEVEMENTS,
+  currentPhase: ProgressionPhase = "phase-1-foundations",
 ): LaneRecommendation[] {
   const recs: LaneRecommendation[] = [];
+
+  // Early-game character unlock achievements (phase-1 alignment)
+  const PHASE1_CHAR_IDS = new Set([1, 2, 3, 42, 67, 79, 80, 82]);
 
   for (const [idStr, name] of Object.entries(BASE_CHARACTER_UNLOCKS)) {
     const id = Number(idStr);
     if (id > maxAchId) continue;
     if (unlocked.has(id)) continue;
 
+    const lookupName = name === "Jacob & Esau" ? "Jacob" : name;
+
     // Count how many marks this character would open
-    const marks = COMPLETION_MARKS[name === "Jacob & Esau" ? "Jacob" : name];
+    const marks = COMPLETION_MARKS[lookupName];
     const markCount = marks
       ? marks.filter((m) => m !== null && m <= maxAchId).length
       : 0;
+
+    // Item quality awareness
+    const charValue = characterItemValue(lookupName, unlocked, false);
+    const best = bestRemainingMark(lookupName, unlocked, false);
+    const qualityBonus = Math.min(charValue / 5, 1);
+    const alignment = PHASE1_CHAR_IDS.has(id) && currentPhase === "phase-1-foundations" ? 0.2 : 0;
 
     const score = computeScore(
       markCount > 0 ? Math.min(markCount / 13, 1) : 0.3,
@@ -276,7 +345,11 @@ function evaluateCharacterUnlocks(
       "single-run",
       0.1,
       0,
+      qualityBonus,
+      alignment,
     );
+
+    const bestInfo = best ? ` — best remaining: ${best.itemName} (${best.quality})` : "";
 
     recs.push({
       lane: "character-unlock",
@@ -287,7 +360,9 @@ function evaluateCharacterUnlocks(
       estimatedEffort: "single-run",
       downstreamValue: markCount,
       score,
-      whyNow: `${getAchievement(id).unlockDescription} — opens ${markCount} completion marks`,
+      whyNow: `${getAchievement(id).unlockDescription} — opens ${markCount} completion marks${bestInfo}`,
+      itemQuality: best?.quality,
+      itemName: best?.itemName,
     });
   }
 
@@ -311,13 +386,21 @@ function evaluateCharacterUnlocks(
         depth = 1;
       }
 
+      // Item quality awareness for tainted characters
+      const charValue = characterItemValue(name, unlocked, true);
+      const best = bestRemainingMark(name, unlocked, true);
+      const qualityBonus = Math.min(charValue / 5, 1);
+
       const score = computeScore(
         0.5, // 7 marks per tainted char
         homeUnlocked ? 0.5 : 0.1,
         "single-run",
         0.2,
         depth,
+        qualityBonus,
       );
+
+      const bestInfo = best ? ` — best remaining: ${best.itemName} (${best.quality})` : "";
 
       recs.push({
         lane: "character-unlock",
@@ -328,7 +411,9 @@ function evaluateCharacterUnlocks(
         estimatedEffort: "single-run",
         downstreamValue: 7,
         score,
-        whyNow: `Reach Home as ${name.replace("T.", "")} with Red Key/Cracked Key — opens 7 tainted marks`,
+        whyNow: `Reach Home as ${name.replace("T.", "")} with Red Key/Cracked Key — opens 7 tainted marks${bestInfo}`,
+        itemQuality: best?.quality,
+        itemName: best?.itemName,
       });
     }
   }
@@ -336,12 +421,45 @@ function evaluateCharacterUnlocks(
   return recs;
 }
 
+// Collect phase criterion achievement IDs for alignment checks
+function getPhaseCriterionIds(phase: ProgressionPhase): Set<number> {
+  const phaseDef = PHASE_DEFINITIONS.find(p => p.id === phase);
+  if (!phaseDef) return new Set();
+  const ids = new Set<number>();
+  for (const c of phaseDef.completionCriteria) {
+    if (c.achievementId != null) ids.add(c.achievementId);
+  }
+  return ids;
+}
+
+function collectToxicMarks(
+  marks: { boss: string; done: boolean; achievementId: number | null }[],
+  characterName: string,
+  out: { characterName: string; bossName: string; itemName: string; reason: string }[],
+): void {
+  for (const mark of marks) {
+    if (mark.done || mark.achievementId === null) continue;
+    const entry = getItemValue(mark.achievementId);
+    if (entry?.quality === "toxic") {
+      out.push({
+        characterName,
+        bossName: mark.boss,
+        itemName: entry.itemName,
+        reason: entry.reason ?? "pool pollution",
+      });
+    }
+  }
+}
+
 function evaluateCompletionMarks(
   unlocked: Set<number>,
   baseGrid: CharacterProgress[],
   taintedGrid: TaintedCharacterProgress[],
+  currentPhase: ProgressionPhase = "phase-1-foundations",
 ): LaneRecommendation[] {
   const recs: LaneRecommendation[] = [];
+  const toxicMarks: { characterName: string; bossName: string; itemName: string; reason: string }[] = [];
+  const phaseAchIds = getPhaseCriterionIds(currentPhase);
 
   // Base characters near complete (≤4 remaining)
   for (const char of baseGrid) {
@@ -352,8 +470,27 @@ function evaluateCompletionMarks(
       .filter((m) => m.achievementId !== null && !m.done)
       .map((m) => m.boss);
 
+    const best = bestRemainingMark(char.name, unlocked, false);
+    const qualityBonus = best ? QUALITY_SCORE[best.quality] : 0;
+    const bestBossPriority = best ? getBossPriority(best.bossName, false) : 99;
+
+    collectToxicMarks(char.marks, char.name, toxicMarks);
+
+    // Phase alignment: if any remaining mark is a phase criterion, boost
+    const hasPhaseRelevantMark = char.marks.some(
+      m => !m.done && m.achievementId !== null && phaseAchIds.has(m.achievementId),
+    );
+    const alignment = hasPhaseRelevantMark ? 0.2 : 0;
+
     const readiness = char.done / char.total;
-    const score = computeScore(readiness, readiness, "multi-run", 0.1, 0);
+    const score = computeScore(readiness, readiness, "multi-run", 0.1, 0, qualityBonus, alignment);
+
+    const bestInfo = best
+      ? ` — next: ${best.bossName} for ${best.itemName} (${best.quality})`
+      : "";
+    const hasToxic = char.marks.some(
+      (m) => !m.done && m.achievementId !== null && getItemValue(m.achievementId)?.quality === "toxic",
+    );
 
     recs.push({
       lane: "completion-mark",
@@ -366,7 +503,54 @@ function evaluateCompletionMarks(
       estimatedEffort: remaining <= 2 ? "single-run" : "multi-run",
       downstreamValue: remaining,
       score,
-      whyNow: `Only ${remaining} marks remaining — close to all hard mode marks for ${char.name}`,
+      whyNow: `Only ${remaining} marks remaining${bestInfo}`,
+      itemQuality: best?.quality,
+      itemName: best?.itemName,
+      bossPriority: bestBossPriority,
+      isToxicWarning: hasToxic || undefined,
+    });
+  }
+
+  // Base characters in progress (>4 remaining, some done) — per-mark rec for best boss
+  for (const char of baseGrid) {
+    const remaining = char.total - char.done;
+    if (remaining <= 4 || char.done === 0) continue;
+
+    const best = bestRemainingMark(char.name, unlocked, false);
+    if (!best) continue;
+
+    collectToxicMarks(char.marks, char.name, toxicMarks);
+
+    const qualityBonus = QUALITY_SCORE[best.quality];
+    const bestBossPriority = getBossPriority(best.bossName, false);
+    const hasPhaseRelevantMark = phaseAchIds.has(best.achievementId);
+    const alignment = hasPhaseRelevantMark ? 0.2 : 0;
+
+    const readiness = char.done / char.total;
+    const score = computeScore(
+      readiness * 0.6,  // lower value than near-complete
+      readiness,
+      "multi-run",
+      0.15,
+      0,
+      qualityBonus,
+      alignment,
+    );
+
+    recs.push({
+      lane: "completion-mark",
+      target: `${char.name}: ${best.bossName} for ${best.itemName} (${char.done}/${char.total} done)`,
+      achievementIds: [best.achievementId],
+      blockedBy: [],
+      blockerDepth: 0,
+      estimatedEffort: "multi-run",
+      downstreamValue: remaining,
+      score,
+      whyNow: `In progress — best remaining mark: ${best.bossName} for ${best.itemName} (${best.quality})`,
+      itemQuality: best.quality,
+      itemName: best.itemName,
+      bossPriority: bestBossPriority,
+      isToxicWarning: best.quality === "toxic" || undefined,
     });
   }
 
@@ -379,8 +563,30 @@ function evaluateCompletionMarks(
       .filter((m) => !m.done)
       .map((m) => m.boss);
 
+    const best = bestRemainingMark(char.name, unlocked, true);
+    const qualityBonus = best ? QUALITY_SCORE[best.quality] : 0;
+    const bestBossPriority = best ? getBossPriority(best.bossName, true) : 99;
+
+    collectToxicMarks(
+      char.marks.map(m => ({ ...m, achievementId: m.achievementId as number | null })),
+      char.name,
+      toxicMarks,
+    );
+
+    const hasPhaseRelevantMark = char.marks.some(
+      m => !m.done && phaseAchIds.has(m.achievementId),
+    );
+    const alignment = hasPhaseRelevantMark ? 0.2 : 0;
+
     const readiness = char.done / char.total;
-    const score = computeScore(readiness, readiness, "multi-run", 0.15, 0);
+    const hasToxic = char.marks.some(
+      (m) => !m.done && getItemValue(m.achievementId)?.quality === "toxic",
+    );
+    const score = computeScore(readiness, readiness, "multi-run", 0.15, 0, qualityBonus, alignment);
+
+    const bestInfo = best
+      ? ` — next: ${best.bossName} for ${best.itemName} (${best.quality})`
+      : "";
 
     recs.push({
       lane: "completion-mark",
@@ -391,7 +597,58 @@ function evaluateCompletionMarks(
       estimatedEffort: remaining <= 2 ? "single-run" : "multi-run",
       downstreamValue: remaining,
       score,
-      whyNow: `Only ${remaining} tainted marks remaining`,
+      whyNow: `Only ${remaining} tainted marks remaining${bestInfo}`,
+      itemQuality: best?.quality,
+      itemName: best?.itemName,
+      bossPriority: bestBossPriority,
+      isToxicWarning: hasToxic || undefined,
+    });
+  }
+
+  // Tainted characters in progress (>3 remaining, some done)
+  for (const char of taintedGrid) {
+    const remaining = char.total - char.done;
+    if (remaining <= 3 || char.done === 0) continue;
+
+    const best = bestRemainingMark(char.name, unlocked, true);
+    if (!best) continue;
+
+    collectToxicMarks(
+      char.marks.map(m => ({ ...m, achievementId: m.achievementId as number | null })),
+      char.name,
+      toxicMarks,
+    );
+
+    const qualityBonus = QUALITY_SCORE[best.quality];
+    const bestBossPriority = getBossPriority(best.bossName, true);
+    const hasPhaseRelevantMark = phaseAchIds.has(best.achievementId);
+    const alignment = hasPhaseRelevantMark ? 0.2 : 0;
+
+    const readiness = char.done / char.total;
+    const score = computeScore(
+      readiness * 0.6,
+      readiness,
+      "multi-run",
+      0.2,
+      0,
+      qualityBonus,
+      alignment,
+    );
+
+    recs.push({
+      lane: "completion-mark",
+      target: `${char.name}: ${best.bossName} for ${best.itemName} (${char.done}/${char.total} done)`,
+      achievementIds: [best.achievementId],
+      blockedBy: [],
+      blockerDepth: 0,
+      estimatedEffort: "multi-run",
+      downstreamValue: remaining,
+      score,
+      whyNow: `In progress — best remaining mark: ${best.bossName} for ${best.itemName} (${best.quality})`,
+      itemQuality: best.quality,
+      itemName: best.itemName,
+      bossPriority: bestBossPriority,
+      isToxicWarning: best.quality === "toxic" || undefined,
     });
   }
 
@@ -399,7 +656,13 @@ function evaluateCompletionMarks(
   for (const char of baseGrid) {
     if (char.done !== 0 || char.total === 0) continue;
 
-    const score = computeScore(0.3, 0.1, "grind", 0.2, 0);
+    const charValue = characterItemValue(char.name, unlocked, false);
+    const best = bestRemainingMark(char.name, unlocked, false);
+    const qualityBonus = Math.min(charValue / 5, 1);
+
+    const score = computeScore(0.3, 0.1, "grind", 0.2, 0, qualityBonus);
+
+    const bestInfo = best ? ` — best mark: ${best.itemName} (${best.quality})` : "";
 
     recs.push({
       lane: "completion-mark",
@@ -410,7 +673,27 @@ function evaluateCompletionMarks(
       estimatedEffort: "grind",
       downstreamValue: char.total,
       score,
-      whyNow: "Untouched character — many unlocks available",
+      whyNow: `Untouched character — many unlocks available${bestInfo}`,
+      itemQuality: best?.quality,
+      itemName: best?.itemName,
+    });
+  }
+
+  // Toxic guardrail warnings (up to 3)
+  for (const toxic of toxicMarks.slice(0, 3)) {
+    recs.push({
+      lane: "guardrail",
+      target: `Pool Warning: ${toxic.itemName}`,
+      achievementIds: [],
+      blockedBy: [],
+      blockerDepth: 0,
+      estimatedEffort: "single-run",
+      downstreamValue: 0,
+      score: 0.12,
+      whyNow: `Consider delaying: ${toxic.characterName} vs ${toxic.bossName} unlocks ${toxic.itemName} — ${toxic.reason}`,
+      isToxicWarning: true,
+      itemQuality: "toxic",
+      itemName: toxic.itemName,
     });
   }
 
@@ -420,6 +703,7 @@ function evaluateCompletionMarks(
 function evaluateChallenges(
   unlocked: Set<number>,
   challenges: ChallengeInfo[],
+  currentPhase: ProgressionPhase = "phase-1-foundations",
 ): LaneRecommendation[] {
   const recs: LaneRecommendation[] = [];
   const incomplete = challenges.filter((c) => !c.completed);
@@ -448,7 +732,8 @@ function evaluateChallenges(
     const value = tierValue[tier] ?? 0.5;
     const effort: EffortLevel = "single-run";
 
-    const score = computeScore(value, depth === 0 ? 0.7 : 0.2, effort, 0.1, depth);
+    const alignment = currentPhase === "phase-1-foundations" ? 0.1 : 0;
+    const score = computeScore(value, depth === 0 ? 0.7 : 0.2, effort, 0.1, depth, 0, alignment);
 
     const rewardText = ch.reward ? ` — unlocks ${ch.reward}` : "";
 
@@ -474,8 +759,11 @@ function evaluateDonation(
   unlocked: Set<number>,
   stats: CounterStats,
   maxAchId: number = TOTAL_ACHIEVEMENTS,
+  currentPhase: ProgressionPhase = "phase-1-foundations",
 ): LaneRecommendation[] {
   const recs: LaneRecommendation[] = [];
+  const donationAlignment =
+    currentPhase === "phase-1-foundations" || currentPhase === "phase-4-completion" ? 0.2 : 0;
 
   // Find next unmet Greed milestone (filtered by DLC)
   const filteredGreed = GREED_DONATION_MILESTONES.filter((m) => m.achievementId <= maxAchId);
@@ -490,6 +778,8 @@ function evaluateDonation(
         "grind",
         0.2,
         0,
+        0,
+        donationAlignment,
       );
 
       const coinProgress = `(${stats.greedDonationCoins}/${m.coins} coins)`;
@@ -524,6 +814,8 @@ function evaluateDonation(
         "grind",
         0.1,
         0,
+        0,
+        donationAlignment,
       );
       recs.push({
         lane: "donation",
@@ -577,21 +869,30 @@ function generateLaneRecommendations(
   taintedGrid: TaintedCharacterProgress[],
   challenges: ChallengeInfo[],
   maxAchId: number = TOTAL_ACHIEVEMENTS,
+  dlcLevel: DlcLevel = "repentance",
 ): LaneRecommendation[] {
+  const currentPhase = detectPhase(unlocked, stats, dlcLevel);
+
   const allRecs = [
-    ...evaluateProgressionGates(unlocked, stats, maxAchId),
-    ...evaluateCharacterUnlocks(unlocked, maxAchId),
-    ...evaluateCompletionMarks(unlocked, baseGrid, taintedGrid),
-    ...evaluateChallenges(unlocked, challenges),
-    ...evaluateDonation(unlocked, stats, maxAchId),
+    ...evaluateProgressionGates(unlocked, stats, maxAchId, currentPhase),
+    ...evaluateCharacterUnlocks(unlocked, maxAchId, currentPhase),
+    ...evaluateCompletionMarks(unlocked, baseGrid, taintedGrid, currentPhase),
+    ...evaluateChallenges(unlocked, challenges, currentPhase),
+    ...evaluateDonation(unlocked, stats, maxAchId, currentPhase),
     ...evaluateGuardrails(unlocked),
   ];
 
   // Sort by score descending, guardrails last
+  // Tie-break: progression-gate > others; within same lane, lower bossPriority wins
   allRecs.sort((a, b) => {
     if (a.lane === "guardrail" && b.lane !== "guardrail") return 1;
     if (a.lane !== "guardrail" && b.lane === "guardrail") return -1;
-    return b.score - a.score;
+    if (b.score !== a.score) return b.score - a.score;
+    // Tie-break: progression gates first
+    if (a.lane === "progression-gate" && b.lane !== "progression-gate") return -1;
+    if (a.lane !== "progression-gate" && b.lane === "progression-gate") return 1;
+    // Within same lane, lower bossPriority wins
+    return (a.bossPriority ?? 99) - (b.bossPriority ?? 99);
   });
 
   return allRecs;
@@ -635,8 +936,9 @@ export function analyze(saveData: SaveData): AnalysisResult {
     ? analyzeTaintedCompletionMarks(unlocked)
     : [];
   const challenges = analyzeChallenges(saveData.challenges);
+  const phaseProgress = analyzePhaseProgress(unlocked, stats, dlcLevel);
   const laneRecommendations = generateLaneRecommendations(
-    unlocked, stats, completionGrid, taintedCompletionGrid, challenges, maxAchId,
+    unlocked, stats, completionGrid, taintedCompletionGrid, challenges, maxAchId, dlcLevel,
   );
 
   const bestiaryEntries = analyzeBestiary(saveData.bestiary);
@@ -660,6 +962,7 @@ export function analyze(saveData: SaveData): AnalysisResult {
     bestiaryEncountered,
     bestiaryTotal: bestiaryEntries.length > 0 ? BESTIARY_TOTAL : 0,
     missingUnlocks,
+    phaseProgress,
   };
 }
 
