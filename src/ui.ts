@@ -28,7 +28,9 @@ import {
 } from "./data/wiki";
 
 function $(id: string): HTMLElement {
-  return document.getElementById(id)!;
+  const el = document.getElementById(id);
+  if (!el) throw new Error(`Missing element #${id}`);
+  return el;
 }
 
 function pct(n: number, total: number): string {
@@ -115,7 +117,7 @@ function renderOverview(result: AnalysisResult): void {
   `;
 }
 
-function markCell(mark: CharacterProgress["marks"][0]): string {
+function markCell(mark: { done: boolean; achievementId: number | null }): string {
   if (mark.achievementId === null) {
     return `<td class="mark na">-</td>`;
   }
@@ -124,28 +126,38 @@ function markCell(mark: CharacterProgress["marks"][0]): string {
     : `<td class="mark missing" title="Achievement #${mark.achievementId}">&#10007;</td>`;
 }
 
-function renderCompletionGrid(grid: CharacterProgress[]): void {
+interface GridConfig {
+  elementId: string;
+  nearCompleteThreshold: number;
+}
+
+function renderGrid(
+  grid: (CharacterProgress | TaintedCharacterProgress)[],
+  bossHeaders: string[],
+  config: GridConfig,
+): void {
+  const container = document.getElementById(config.elementId);
+  if (!container) return;
+
   if (grid.length === 0) {
-    $("completion-grid").innerHTML = `<p class="empty">No completion marks available for this DLC version.</p>`;
+    container.innerHTML = `<p class="empty">No completion marks available for this DLC version.</p>`;
     return;
   }
 
-  // Derive boss columns from the grid data
-  const bossNames = grid[0].marks.map((m) => m.boss);
-  const headerRow = `<tr><th>Character</th>${bossNames.map((b) => {
-    const short = BOSS_SHORT_NAME[b] ?? b;
-    return `<th>${wikiLink(bossWikiUrl(short), short)}</th>`;
-  }).join("")}<th>Done</th></tr>`;
+  const headerRow = `<tr><th>Character</th>${bossHeaders.map((b) =>
+    `<th>${wikiLink(bossWikiUrl(b), b)}</th>`,
+  ).join("")}<th>Done</th></tr>`;
 
   const rows = grid.map((char) => {
-    const nearComplete = char.total - char.done > 0 && char.total - char.done <= 4 && char.done > 0;
+    const remaining = char.total - char.done;
+    const nearComplete = remaining > 0 && remaining <= config.nearCompleteThreshold && char.done > 0;
     const rowClass = nearComplete ? "near-complete" : char.done === char.total && char.total > 0 ? "complete" : "";
     const cells = char.marks.map(markCell).join("");
     const charLink = wikiLink(characterWikiUrl(char.name), char.name);
     return `<tr class="${rowClass}"><td class="char-name">${charLink}</td>${cells}<td class="done-count">${char.done}/${char.total}</td></tr>`;
   });
 
-  $("completion-grid").innerHTML = `
+  container.innerHTML = `
     <table class="marks-table">
       <thead>${headerRow}</thead>
       <tbody>${rows.join("")}</tbody>
@@ -153,31 +165,15 @@ function renderCompletionGrid(grid: CharacterProgress[]): void {
   `;
 }
 
+function renderCompletionGrid(grid: CharacterProgress[]): void {
+  const bossHeaders = grid.length > 0
+    ? grid[0].marks.map((m) => BOSS_SHORT_NAME[m.boss] ?? m.boss)
+    : [];
+  renderGrid(grid, bossHeaders, { elementId: "completion-grid", nearCompleteThreshold: 4 });
+}
+
 function renderTaintedCompletionGrid(grid: TaintedCharacterProgress[]): void {
-  const headerRow = `<tr><th>Character</th>${TAINTED_BOSS_SHORT_NAMES.map((b) => `<th>${wikiLink(bossWikiUrl(b), b)}</th>`).join("")}<th>Done</th></tr>`;
-
-  const rows = grid.map((char) => {
-    const nearComplete = char.total - char.done > 0 && char.total - char.done <= 3 && char.done > 0;
-    const rowClass = nearComplete ? "near-complete" : char.done === char.total ? "complete" : "";
-    const cells = char.marks
-      .map((m) =>
-        m.done
-          ? `<td class="mark done" title="Achievement #${m.achievementId}">&#10003;</td>`
-          : `<td class="mark missing" title="Achievement #${m.achievementId}">&#10007;</td>`,
-      )
-      .join("");
-    const charLink = wikiLink(characterWikiUrl(char.name), char.name);
-    return `<tr class="${rowClass}"><td class="char-name">${charLink}</td>${cells}<td class="done-count">${char.done}/${char.total}</td></tr>`;
-  });
-
-  const container = document.getElementById("tainted-completion-grid");
-  if (!container) return;
-  container.innerHTML = `
-    <table class="marks-table">
-      <thead>${headerRow}</thead>
-      <tbody>${rows.join("")}</tbody>
-    </table>
-  `;
+  renderGrid(grid, [...TAINTED_BOSS_SHORT_NAMES], { elementId: "tainted-completion-grid", nearCompleteThreshold: 3 });
 }
 
 const LANE_LABELS: Record<Lane, string> = {

@@ -18,7 +18,7 @@ describe("integration: full pipeline with sample save", () => {
     const result = loadAndAnalyze("rep+persistentgamedata1.dat");
 
     // Achievement counts
-    expect(result.unlockedCount).toBe(113);
+    expect(result.unlockedCount).toBe(112);
     expect(result.totalAchievements).toBe(637);
 
     // DLC level
@@ -86,7 +86,7 @@ describe("integration: multi-version saves", () => {
     expect(result.taintedCompletionGrid.length).toBe(0);
     expect(result.completionGrid[0].marks.length).toBe(6);
     expect(result.totalCollectibles).toBeGreaterThan(0);
-    expect(result.laneRecommendations.length).toBeGreaterThanOrEqual(0);
+    expect(result.laneRecommendations.length).toBeGreaterThan(0);
     expect(result.runPlans).toBeDefined();
     expect(result.runPlans.every((p) => p.routeId !== "corpse")).toBe(true);
     expect(result.runPlans.every((p) => p.routeId !== "home")).toBe(true);
@@ -136,7 +136,7 @@ describe("integration: multi-version saves", () => {
     for (const file of saves) {
       const result = loadAndAnalyze(file);
       // All saves should produce some recommendations (at minimum guardrails)
-      expect(result.laneRecommendations.length).toBeGreaterThanOrEqual(0);
+      expect(result.laneRecommendations.length).toBeGreaterThan(0);
       expect(result.runPlans).toBeDefined();
     }
   });
@@ -188,7 +188,7 @@ describe("integration: phaseProgress", () => {
 
   it("primary fixture is early-game phase", () => {
     const result = loadAndAnalyze("rep+persistentgamedata1.dat");
-    // 113/637 achievements should be phase-1 or phase-2
+    // 112/637 achievements should be phase-1 or phase-2
     expect(["phase-1-foundations", "phase-2-expansion"]).toContain(
       result.phaseProgress!.currentPhase,
     );

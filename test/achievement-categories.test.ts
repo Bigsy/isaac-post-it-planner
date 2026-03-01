@@ -182,7 +182,7 @@ describe("analyzeMissingUnlocks", () => {
 describe("integration: sample save missing unlocks", () => {
   it("sample save has correct missing count", () => {
     const result = loadAndAnalyze("rep+persistentgamedata1.dat");
-    // unlockedCount=113 includes 1 ID beyond maxAchId (637), so 637-112=525
+    // 112 unlocked out of 637 total = 525 missing
     expect(result.missingUnlocks.totalMissing).toBe(525);
   });
 

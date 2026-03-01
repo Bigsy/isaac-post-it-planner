@@ -58,18 +58,22 @@ export function parseSaveFile(buffer: ArrayBuffer): SaveData {
     offset += 4;
 
     if (U8_CHUNKS.has(chunkType)) {
+      const available = buffer.byteLength - offset;
+      const safeCount = Math.min(count, available);
       const values: number[] = [];
-      for (let j = 0; j < count; j++) {
+      for (let j = 0; j < safeCount; j++) {
         values.push(bytes[offset + j]);
       }
-      offset += count;
+      offset += safeCount;
       chunks[chunkType] = values;
     } else if (I32_CHUNKS.has(chunkType)) {
+      const available = Math.floor((buffer.byteLength - offset) / 4);
+      const safeCount = Math.min(count, available);
       const values: number[] = [];
-      for (let j = 0; j < count; j++) {
+      for (let j = 0; j < safeCount; j++) {
         values.push(view.getInt32(offset + j * 4, true));
       }
-      offset += count * 4;
+      offset += safeCount * 4;
       chunks[chunkType] = values;
     } else {
       break;
@@ -131,14 +135,16 @@ function parseBestiaryChunk(
     offset += 8;
 
     const entryCount = lengthField / 4;
+    const availableEntries = Math.floor((bytes.byteLength - offset) / 8);
+    const safeEntryCount = Math.min(entryCount, availableEntries);
     const target = data[typeMap[type]];
     if (!target) {
       // Unknown sub-chunk type — skip its entries
-      offset += entryCount * 8;
+      offset += safeEntryCount * 8;
       continue;
     }
 
-    for (let j = 0; j < entryCount; j++) {
+    for (let j = 0; j < safeEntryCount; j++) {
       if (offset + 8 > bytes.byteLength) break;
       const variant = bytes[offset + 1];
       const idLow = bytes[offset + 2];

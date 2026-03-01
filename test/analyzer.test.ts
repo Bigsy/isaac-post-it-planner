@@ -48,13 +48,23 @@ describe("getUnlockedIds", () => {
   it("returns correct count from sample save", () => {
     const save = loadSample();
     const unlocked = getUnlockedIds(save.achievements);
-    expect(unlocked.size).toBe(113);
+    expect(unlocked.size).toBe(112);
   });
 
   it("skips index 0", () => {
     const unlocked = getUnlockedIds([1, 0, 1, 0]);
     expect(unlocked.has(0)).toBe(false);
     expect(unlocked.has(2)).toBe(true);
+  });
+
+  it("excludes indices beyond maxId", () => {
+    // Array has non-zero values at indices 1-5, but maxId caps at 3
+    const unlocked = getUnlockedIds([0, 1, 1, 1, 1, 1], 3);
+    expect(unlocked.size).toBe(3);
+    expect(unlocked.has(1)).toBe(true);
+    expect(unlocked.has(3)).toBe(true);
+    expect(unlocked.has(4)).toBe(false);
+    expect(unlocked.has(5)).toBe(false);
   });
 });
 
@@ -87,7 +97,7 @@ describe("countCollectiblesSeen", () => {
 describe("analyze (full pipeline)", () => {
   it("returns correct achievement counts", () => {
     const result = analyze(loadSample());
-    expect(result.unlockedCount).toBe(113);
+    expect(result.unlockedCount).toBe(112);
     expect(result.totalAchievements).toBe(637);
   });
 

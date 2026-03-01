@@ -252,12 +252,9 @@ export function buildRunPlans(
   phaseProgress: PhaseProgress,
   gates: ProgressionGate[],
   stats: CounterStats,
-  dlcLevel: DlcLevel,
+  _dlcLevel: DlcLevel,
   maxAchId: number,
 ): RunPlan[] {
-  const _dlcLevel = dlcLevel;
-  void _dlcLevel;
-
   const phaseAchievementIds = getPhaseCriterionIds(phaseProgress);
   const clearedGates = new Set<string>();
   for (const gate of gates) {
