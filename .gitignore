@@ -9,6 +9,10 @@ node_modules/
 dist/bundle.js
 dist/bundle.js.map
 
+# Raw game assets (extracted from game install / wiki, not committed)
+assets/game/
+assets/wiki/
+
 # IDE
 .idea/
 .clj-kondo/
