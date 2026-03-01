@@ -309,18 +309,19 @@ h3 {
 }
 
 /* Completion grid table */
+.marks-table-wrapper {
+  overflow-x: auto;
+}
 .marks-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.85rem;
-  overflow-x: auto;
-  display: block;
 }
 .marks-table thead { position: sticky; top: 0; }
 .marks-table th {
   background: linear-gradient(180deg, rgba(26,26,46,1), rgba(18,18,30,1));
   color: var(--pencil);
-  padding: 0.5rem 0.35rem;
+  padding: 0.5rem 0.5rem;
   font-weight: 600;
   text-align: center;
   white-space: nowrap;
@@ -328,10 +329,13 @@ h3 {
   border-bottom: 2px solid rgba(200,168,78,0.15);
 }
 .marks-table td {
-  padding: 0.45rem 0.35rem;
+  padding: 0.45rem 0.5rem;
   text-align: center;
   border-bottom: 1px solid rgba(85,85,104,0.12);
   transition: background 0.15s;
+}
+.marks-table td.mark {
+  line-height: 0;
 }
 /* Row hover */
 .marks-table tbody tr:hover td {
@@ -363,20 +367,23 @@ h3 {
   margin-right: 6px;
 }
 
-/* Completion mark icons — slightly larger */
+/* Completion mark icons — pre-scaled 32×32 (2× of 16px source) */
 .mark-icon {
-  width: 22px;
-  height: 22px;
+  width: 32px;
+  height: 32px;
+  display: block;
+  margin: 0 auto;
+  overflow: visible;
 }
 .mark.done .mark-icon { /* full color, no filter */ }
 .mark.missing .mark-icon {
   filter: saturate(0.25) brightness(0.5) opacity(0.7);
 }
 
-/* Boss column header icons — slightly larger */
+/* Boss column header icons — 2× native 24px */
 .boss-icon {
-  width: 26px;
-  height: 26px;
+  width: 48px;
+  height: 48px;
   display: block;
   margin: 0 auto 2px;
   filter: drop-shadow(0 1px 2px rgba(0,0,0,0.3));
@@ -386,10 +393,10 @@ h3 {
   font-size: 0.8rem;
 }
 
-/* Character portraits in grid — slightly larger */
+/* Character portraits in grid — 1× native 48px */
 .char-portrait {
-  width: 26px;
-  height: 26px;
+  width: 48px;
+  height: 48px;
   margin-right: 4px;
   filter: drop-shadow(0 1px 2px rgba(0,0,0,0.3));
 }

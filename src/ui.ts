@@ -58,7 +58,7 @@ function renderOverview(result: AnalysisResult): void {
   $("overview").innerHTML = `
     <div class="stat-grid">
       <div class="stat-card primary">
-        <div class="stat-value">${hudIcon("achievements")}${result.unlockedCount}/${result.totalAchievements}</div>
+        <div class="stat-value stat-value-hero">${hudIcon("achievements")}${result.unlockedCount}/${result.totalAchievements}</div>
         <div class="stat-label">Achievements (${pct(result.unlockedCount, result.totalAchievements)}%)</div>
         <div class="progress-bar"><div class="progress-fill" style="width:${pct(result.unlockedCount, result.totalAchievements)}%"></div></div>
       </div>
@@ -185,10 +185,12 @@ function renderGrid(
   });
 
   container.innerHTML = `
-    <table class="marks-table">
-      <thead>${headerRow}</thead>
-      <tbody>${rows.join("")}</tbody>
-    </table>
+    <div class="marks-table-wrapper">
+      <table class="marks-table">
+        <thead>${headerRow}</thead>
+        <tbody>${rows.join("")}</tbody>
+      </table>
+    </div>
   `;
 }
 
