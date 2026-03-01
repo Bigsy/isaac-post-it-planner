@@ -17,6 +17,7 @@ import { BOSS_SHORT_NAME } from "./data/characters";
 import { TAINTED_BOSS_SHORT_NAMES } from "./data/tainted-marks";
 import { DLC_LABELS } from "./data/dlc";
 import { getAchievement } from "./data/achievements";
+import { markSpritePath, bossIconPath, charSpritePath, hudIconPath } from "./data/sprites";
 import {
   bossWikiUrl,
   characterWikiUrl,
@@ -37,6 +38,12 @@ function pct(n: number, total: number): string {
   return total === 0 ? "0.0" : ((n / total) * 100).toFixed(1);
 }
 
+function hudIcon(statKey: string): string {
+  const src = hudIconPath(statKey);
+  if (!src) return "";
+  return `<img src="${src}" alt="" class="hud-icon">`;
+}
+
 function renderDlcBadge(result: AnalysisResult): void {
   const el = document.getElementById("dlc-badge");
   if (!el) return;
@@ -51,75 +58,80 @@ function renderOverview(result: AnalysisResult): void {
   $("overview").innerHTML = `
     <div class="stat-grid">
       <div class="stat-card primary">
-        <div class="stat-value">${result.unlockedCount}/${result.totalAchievements}</div>
+        <div class="stat-value">${hudIcon("achievements")}${result.unlockedCount}/${result.totalAchievements}</div>
         <div class="stat-label">Achievements (${pct(result.unlockedCount, result.totalAchievements)}%)</div>
         <div class="progress-bar"><div class="progress-fill" style="width:${pct(result.unlockedCount, result.totalAchievements)}%"></div></div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">${result.collectiblesSeen}/${result.totalCollectibles}</div>
+        <div class="stat-value">${hudIcon("collectibles")}${result.collectiblesSeen}/${result.totalCollectibles}</div>
         <div class="stat-label">Collectibles Seen (${pct(result.collectiblesSeen, result.totalCollectibles)}%)</div>
         <div class="progress-bar"><div class="progress-fill" style="width:${pct(result.collectiblesSeen, result.totalCollectibles)}%"></div></div>
       </div>${result.bestiaryTotal > 0 ? `
       <div class="stat-card">
-        <div class="stat-value">${result.bestiaryEncountered}/${result.bestiaryTotal}</div>
+        <div class="stat-value">${hudIcon("bestiary")}${result.bestiaryEncountered}/${result.bestiaryTotal}</div>
         <div class="stat-label">Bestiary (${pct(result.bestiaryEncountered, result.bestiaryTotal)}%)</div>
         <div class="progress-bar"><div class="progress-fill" style="width:${pct(result.bestiaryEncountered, result.bestiaryTotal)}%"></div></div>
       </div>` : ""}
       <div class="stat-card">
-        <div class="stat-value">${s.momKills}</div>
+        <div class="stat-value">${hudIcon("momKills")}${s.momKills}</div>
         <div class="stat-label">Mom Kills</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">${s.deaths}</div>
+        <div class="stat-value">${hudIcon("deaths")}${s.deaths}</div>
         <div class="stat-label">Deaths</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">${completedChallenges}/${result.challenges.length}</div>
+        <div class="stat-value">${hudIcon("challenges")}${completedChallenges}/${result.challenges.length}</div>
         <div class="stat-label">Challenges</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">${s.winStreak}</div>
+        <div class="stat-value">${hudIcon("winStreak")}${s.winStreak}</div>
         <div class="stat-label">Win Streak</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">${s.bestStreak}</div>
+        <div class="stat-value">${hudIcon("bestStreak")}${s.bestStreak}</div>
         <div class="stat-label">Best Streak</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">${s.edenTokens}</div>
+        <div class="stat-value">${hudIcon("edenTokens")}${s.edenTokens}</div>
         <div class="stat-label">Eden Tokens</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">${s.rocksDestroyed.toLocaleString()}</div>
+        <div class="stat-value">${hudIcon("rocksDestroyed")}${s.rocksDestroyed.toLocaleString()}</div>
         <div class="stat-label">Rocks Destroyed</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">${s.tintedRocksDestroyed}</div>
+        <div class="stat-value">${hudIcon("tintedRocks")}${s.tintedRocksDestroyed}</div>
         <div class="stat-label">Tinted Rocks</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">${s.poopDestroyed.toLocaleString()}</div>
+        <div class="stat-value">${hudIcon("poopDestroyed")}${s.poopDestroyed.toLocaleString()}</div>
         <div class="stat-label">Poop Destroyed</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">${s.shopkeeperKills}</div>
+        <div class="stat-value">${hudIcon("shopkeepers")}${s.shopkeeperKills}</div>
         <div class="stat-label">Shopkeepers Killed</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">${s.greedDonationCoins}</div>
+        <div class="stat-value">${hudIcon("greedDonation")}${s.greedDonationCoins}</div>
         <div class="stat-label">Greed Donation</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">${s.normalDonationCoins}</div>
+        <div class="stat-value">${hudIcon("donationMachine")}${s.normalDonationCoins}</div>
         <div class="stat-label">Normal Donation</div>
       </div>
     </div>
   `;
 }
 
-function markCell(mark: { done: boolean; achievementId: number | null }): string {
+function markCell(mark: { done: boolean; achievementId: number | null; boss: string }): string {
   if (mark.achievementId === null) {
     return `<td class="mark na">-</td>`;
+  }
+  const src = markSpritePath(mark.boss, mark.done);
+  const state = mark.done ? "done" : "missing";
+  if (src) {
+    return `<td class="mark ${state}" title="Achievement #${mark.achievementId}"><img src="${src}" alt="${state}" class="mark-icon"></td>`;
   }
   return mark.done
     ? `<td class="mark done" title="Achievement #${mark.achievementId}">&#10003;</td>`
@@ -129,6 +141,17 @@ function markCell(mark: { done: boolean; achievementId: number | null }): string
 interface GridConfig {
   elementId: string;
   nearCompleteThreshold: number;
+  bossFullNames: string[];
+}
+
+function bossHeaderCell(shortName: string, fullName: string): string {
+  const iconSrc = bossIconPath(fullName);
+  const link = bossWikiUrl(shortName);
+  const iconHtml = iconSrc
+    ? `<img src="${iconSrc}" alt="${shortName}" class="boss-icon" title="${shortName}">`
+    : "";
+  const label = wikiLink(link, shortName);
+  return `<th>${iconHtml}<span class="boss-label">${label}</span></th>`;
 }
 
 function renderGrid(
@@ -144,8 +167,8 @@ function renderGrid(
     return;
   }
 
-  const headerRow = `<tr><th>Character</th>${bossHeaders.map((b) =>
-    `<th>${wikiLink(bossWikiUrl(b), b)}</th>`,
+  const headerRow = `<tr><th>Character</th>${bossHeaders.map((b, i) =>
+    bossHeaderCell(b, config.bossFullNames[i] ?? b),
   ).join("")}<th>Done</th></tr>`;
 
   const rows = grid.map((char) => {
@@ -153,8 +176,12 @@ function renderGrid(
     const nearComplete = remaining > 0 && remaining <= config.nearCompleteThreshold && char.done > 0;
     const rowClass = nearComplete ? "near-complete" : char.done === char.total && char.total > 0 ? "complete" : "";
     const cells = char.marks.map(markCell).join("");
+    const portrait = charSpritePath(char.name);
+    const portraitHtml = portrait
+      ? `<img src="${portrait}" alt="" class="char-portrait">`
+      : "";
     const charLink = wikiLink(characterWikiUrl(char.name), char.name);
-    return `<tr class="${rowClass}"><td class="char-name">${charLink}</td>${cells}<td class="done-count">${char.done}/${char.total}</td></tr>`;
+    return `<tr class="${rowClass}"><td class="char-name">${portraitHtml}${charLink}</td>${cells}<td class="done-count">${char.done}/${char.total}</td></tr>`;
   });
 
   container.innerHTML = `
@@ -169,11 +196,17 @@ function renderCompletionGrid(grid: CharacterProgress[]): void {
   const bossHeaders = grid.length > 0
     ? grid[0].marks.map((m) => BOSS_SHORT_NAME[m.boss] ?? m.boss)
     : [];
-  renderGrid(grid, bossHeaders, { elementId: "completion-grid", nearCompleteThreshold: 4 });
+  const bossFullNames = grid.length > 0
+    ? grid[0].marks.map((m) => m.boss)
+    : [];
+  renderGrid(grid, bossHeaders, { elementId: "completion-grid", nearCompleteThreshold: 4, bossFullNames });
 }
 
 function renderTaintedCompletionGrid(grid: TaintedCharacterProgress[]): void {
-  renderGrid(grid, [...TAINTED_BOSS_SHORT_NAMES], { elementId: "tainted-completion-grid", nearCompleteThreshold: 3 });
+  const bossFullNames = grid.length > 0
+    ? grid[0].marks.map((m) => m.boss)
+    : [];
+  renderGrid(grid, [...TAINTED_BOSS_SHORT_NAMES], { elementId: "tainted-completion-grid", nearCompleteThreshold: 3, bossFullNames });
 }
 
 const LANE_LABELS: Record<Lane, string> = {
@@ -304,6 +337,8 @@ function renderRunGoal(goal: RunGoal, isPrimary: boolean): string {
 }
 
 function renderRunPlanCard(plan: RunPlan, currentPhase?: ProgressionPhase, phaseName?: string): string {
+  const portrait = charSpritePath(plan.character);
+  const portraitHtml = portrait ? `<img src="${portrait}" alt="" class="run-portrait">` : "";
   const characterLink = wikiLink(characterWikiUrl(plan.character), plan.character);
   const routeLink = wikiLink(routeWikiUrl(plan.routeWikiPath), plan.route);
   const timedBadge = plan.timed ? `<span class="run-timed">timed</span>` : "";
@@ -321,7 +356,7 @@ function renderRunPlanCard(plan: RunPlan, currentPhase?: ProgressionPhase, phase
   return `
     <div class="run-plan">
       <div class="run-plan-header">
-        <span class="run-character">${characterLink}</span>
+        ${portraitHtml}<span class="run-character">${characterLink}</span>
         <span class="run-arrow">-&gt;</span>
         <span class="run-destination">${routeLink}</span>
         ${phaseBadge}
@@ -443,10 +478,11 @@ function renderCharacterUnlocks(result: AnalysisResult): void {
     const items = chars
       .map((c) => {
         const cls = c.unlocked ? "char-unlock unlocked" : "char-unlock locked";
-        const status = c.unlocked ? "&#10003;" : "&#10007;";
+        const portrait = charSpritePath(c.name);
+        const portraitHtml = portrait ? `<img src="${portrait}" alt="" class="char-unlock-portrait">` : "";
         const nameLink = wikiLink(characterWikiUrl(c.name), c.name);
         const desc = c.unlocked ? "" : `<div class="unlock-how">${c.unlockDescription}</div>`;
-        return `<div class="${cls}"><span class="status">${status}</span> ${nameLink}${desc}</div>`;
+        return `<div class="${cls}">${portraitHtml} ${nameLink}${desc}</div>`;
       })
       .join("");
     return `<h3>${title}</h3><div class="char-list">${items}</div>`;

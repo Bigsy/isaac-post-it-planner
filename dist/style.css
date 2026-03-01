@@ -37,21 +37,54 @@ body {
   font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
   line-height: 1.5;
   min-height: 100vh;
+  position: relative;
+}
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: url("img/basement-bg.png") repeat;
+  opacity: 0.06;
+  pointer-events: none;
+  z-index: -1;
+  image-rendering: pixelated;
 }
 
 header {
   text-align: center;
-  padding: 2rem 1rem 1rem;
+  padding: 1rem 1rem 1rem;
+}
+.title-art {
+  margin: 0 auto;
+  max-width: 300px;
+  opacity: 0.15;
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+.title-postit {
+  width: 100%;
+  height: auto;
+  image-rendering: pixelated;
+}
+.title-logo {
+  display: block;
+  margin: -1.5rem auto 0.25rem;
+  height: 48px;
+  width: auto;
+  image-rendering: pixelated;
+  position: relative;
 }
 header h1 {
   font-family: "Upheaval", system-ui, sans-serif;
   color: var(--brass);
   font-size: 2rem;
   letter-spacing: 0.05em;
+  position: relative;
 }
 .subtitle {
   color: var(--pencil);
   margin-top: 0.25rem;
+  position: relative;
 }
 
 main {
@@ -171,10 +204,11 @@ h3 {
 .marks-table th {
   background: var(--parchment);
   color: var(--pencil);
-  padding: 0.4rem 0.3rem;
+  padding: 0.3rem 0.2rem;
   font-weight: 600;
   text-align: center;
   white-space: nowrap;
+  vertical-align: bottom;
 }
 .marks-table td {
   padding: 0.35rem 0.3rem;
@@ -188,6 +222,70 @@ h3 {
   padding-right: 0.5rem !important;
 }
 .done-count { font-weight: 600; color: var(--pencil); }
+
+/* Game sprite global treatment */
+.mark-icon,
+.boss-icon,
+.char-portrait,
+.run-portrait,
+.char-unlock-portrait,
+.hud-icon {
+  image-rendering: pixelated;
+  vertical-align: middle;
+}
+
+/* HUD stat card icons (20x20) */
+.hud-icon {
+  width: 20px;
+  height: 20px;
+  margin-right: 6px;
+}
+
+/* Completion mark icons (20x20) */
+.mark-icon {
+  width: 20px;
+  height: 20px;
+}
+.mark.done .mark-icon { /* full color, no filter */ }
+.mark.missing .mark-icon {
+  filter: saturate(0.25) brightness(0.5) opacity(0.7);
+}
+
+/* Boss column header icons (24x24) */
+.boss-icon {
+  width: 24px;
+  height: 24px;
+  display: block;
+  margin: 0 auto 2px;
+}
+.boss-label {
+  display: block;
+  font-size: 0.75rem;
+}
+
+/* Character portraits in grid (24x24) */
+.char-portrait {
+  width: 24px;
+  height: 24px;
+  margin-right: 4px;
+}
+
+/* Character portraits in run plan cards */
+.run-portrait {
+  width: 28px;
+  height: 28px;
+  margin-right: 4px;
+}
+
+/* Character portraits in unlock list */
+.char-unlock-portrait {
+  width: 24px;
+  height: 24px;
+  margin-right: 4px;
+}
+.char-unlock.locked .char-unlock-portrait {
+  filter: saturate(0.3) brightness(0.6);
+}
 
 .mark.done { color: var(--mold); }
 .mark.missing { color: var(--wound); }
