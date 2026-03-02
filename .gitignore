@@ -17,3 +17,6 @@ assets/wiki/
 .idea/
 .clj-kondo/
 .lsp/
+
+.gemini/
+gha-creds-*.json

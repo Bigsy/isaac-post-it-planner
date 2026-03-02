@@ -90,8 +90,8 @@ header::after {
 }
 .title-art {
   margin: 0 auto;
-  max-width: 300px;
-  opacity: 0.15;
+  max-width: 200px;
+  opacity: 0.35;
   pointer-events: none;
   mix-blend-mode: screen;
 }
@@ -103,7 +103,7 @@ header::after {
 .title-logo {
   display: block;
   margin: -1.5rem auto 0.25rem;
-  height: 56px;
+  height: 80px;
   width: auto;
   image-rendering: pixelated;
   position: relative;
@@ -919,6 +919,32 @@ footer {
   padding: 1.5rem;
   color: var(--pencil);
   font-size: 0.85rem;
+}
+
+.github-star {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  transition: border-color 0.2s, color 0.2s;
+}
+.github-star:hover {
+  color: var(--brass);
+  border-color: var(--brass);
+}
+.github-star svg {
+  flex-shrink: 0;
 }
 
 @media (max-width: 980px) {

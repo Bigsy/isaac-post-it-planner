@@ -26,6 +26,7 @@ import {
   rewardWikiUrl,
   routeWikiUrl,
   achievementWikiUrl,
+  bestiaryWikiUrl,
   wikiLink,
 } from "./data/wiki";
 
@@ -504,7 +505,8 @@ function renderBestiaryGroup(entries: BestiaryEntry[], label: string, open: bool
 
   const rows = entries.map((e) => {
     const cls = e.encountered === 0 ? ' class="not-encountered"' : "";
-    return `<tr${cls}><td>${e.name}</td><td>${e.encountered}</td><td>${e.kills}</td><td>${e.hitsTaken}</td><td>${e.deathsTo}</td></tr>`;
+    const nameHtml = wikiLink(bestiaryWikiUrl(e.name), e.name);
+    return `<tr${cls}><td>${nameHtml}</td><td>${e.encountered}</td><td>${e.kills}</td><td>${e.hitsTaken}</td><td>${e.deathsTo}</td></tr>`;
   }).join("");
 
   return `

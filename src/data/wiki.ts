@@ -179,6 +179,25 @@ export function achievementWikiUrl(name: string): string | null {
   return wikiUrl(name);
 }
 
+// --- Bestiary overrides ---
+
+/** Monster names that collide with character/item pages */
+const BESTIARY_OVERRIDES: Record<string, string> = {
+  "Isaac": "Isaac_(Boss)",
+  "???": "%3F%3F%3F_(Boss)",
+  "Delirium": "Delirium_(Boss)",
+  "Mother": "Mother_(Boss)",
+  "Greed": "Greed_(Mini-Boss)",
+  "Super Greed": "Super_Greed_(Mini-Boss)",
+};
+
+export function bestiaryWikiUrl(name: string): string {
+  if (name in BESTIARY_OVERRIDES) {
+    return WIKI_BASE + BESTIARY_OVERRIDES[name];
+  }
+  return wikiUrl(name);
+}
+
 // --- HTML helpers ---
 
 export function wikiLink(url: string | null, text: string): string {
