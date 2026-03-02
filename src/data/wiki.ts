@@ -21,6 +21,7 @@ export function routeWikiUrl(wikiPathName: string): string {
 
 /** Maps BOSS_NAMES to wiki page paths (null = skip, no single page) */
 const BOSS_NAME_OVERRIDES: Partial<Record<string, string | null>> = {
+  "Isaac": "Isaac_(Boss)",
   "Mom's Heart": "Mom%27s_Heart",
   "???": "%3F%3F%3F_(Boss)",
   "Boss Rush": "Boss_Rush",
@@ -31,6 +32,7 @@ const BOSS_NAME_OVERRIDES: Partial<Record<string, string | null>> = {
 
 /** Maps BOSS_SHORT_NAMES to wiki page paths (null = skip) */
 const BOSS_SHORT_OVERRIDES: Partial<Record<string, string | null>> = {
+  Isaac: "Isaac_(Boss)",
   Heart: "Mom%27s_Heart",
   BB: "%3F%3F%3F_(Boss)",
   Rush: "Boss_Rush",

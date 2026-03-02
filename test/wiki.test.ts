@@ -81,7 +81,7 @@ describe("bossWikiUrl", () => {
   });
 
   it("passes through simple boss names", () => {
-    expect(bossWikiUrl("Isaac")).toBe(WIKI_BASE + "Isaac");
+    expect(bossWikiUrl("Isaac")).toBe(WIKI_BASE + "Isaac_(Boss)");
     expect(bossWikiUrl("Satan")).toBe(WIKI_BASE + "Satan");
     expect(bossWikiUrl("Hush")).toBe(WIKI_BASE + "Hush");
     expect(bossWikiUrl("Beast")).toBe(WIKI_BASE + "Beast");
