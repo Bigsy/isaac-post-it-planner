@@ -10,6 +10,7 @@ import type {
   PhaseProgress,
   RunGoal,
   RunPlan,
+  BossKillMilestoneGroupStatus,
 } from "./types";
 import type { ProgressionPhase } from "./data/phases";
 import type { ItemQuality } from "./data/item-values";
@@ -643,6 +644,59 @@ function renderMissingUnlocks(missingUnlocks: MissingUnlocksResult): void {
   container.innerHTML = html;
 }
 
+function renderBossKillMilestones(milestones: BossKillMilestoneGroupStatus[]): void {
+  const section = document.getElementById("boss-milestones-section");
+  const container = document.getElementById("boss-milestones");
+  if (!section || !container) return;
+
+  if (milestones.length === 0) {
+    section.classList.add("hidden");
+    return;
+  }
+  section.classList.remove("hidden");
+
+  let html = "";
+  for (const group of milestones) {
+    const done = group.milestones.filter((m) => m.unlocked).length;
+    const total = group.milestones.length;
+    const allDone = done === total;
+    const pctVal = total === 0 ? "0" : ((done / total) * 100).toFixed(1);
+
+    const killsLabel = group.killCountKnown
+      ? `${group.currentKills} kills`
+      : `${group.currentKills}+ kills (estimated)`;
+
+    const rows = group.milestones.map((m) => {
+      const icon = m.unlocked ? "&#10003;" : "&#10007;";
+      const stateClass = m.unlocked ? "unlocked" : "locked";
+      const nextClass = !m.unlocked && group.nextMilestone?.achievementId === m.achievementId ? " next" : "";
+      return `
+        <div class="milestone-row ${stateClass}${nextClass}">
+          <span class="milestone-icon">${icon}</span>
+          <span class="milestone-kills">${m.kills} kills</span>
+          <span class="milestone-name">${m.name}</span>
+        </div>`;
+    }).join("");
+
+    const openAttr = allDone ? "" : " open";
+    const completeClass = allDone ? " complete" : "";
+
+    html += `
+      <details class="milestone-group${completeClass}"${openAttr}>
+        <summary>
+          <span class="milestone-summary">
+            ${allDone ? "&#10003; " : ""}${group.bossDisplayName}
+            <span class="progress-bar"><span class="progress-fill" style="width:${pctVal}%"></span></span>
+            <span class="milestone-count">${done}/${total} — ${killsLabel}</span>
+          </span>
+        </summary>
+        <div class="milestone-rows">${rows}</div>
+      </details>`;
+  }
+
+  container.innerHTML = html;
+}
+
 export function renderResults(result: AnalysisResult): void {
   $("upload-section").classList.add("collapsed");
   $("results").classList.remove("hidden");
@@ -650,6 +704,7 @@ export function renderResults(result: AnalysisResult): void {
   renderDlcBadge(result);
   renderOverview(result);
   renderPhaseProgress(result.phaseProgress);
+  renderBossKillMilestones(result.bossKillMilestones);
   renderPathRecommendations(
     result.runPlans,
     result.laneRecommendations,

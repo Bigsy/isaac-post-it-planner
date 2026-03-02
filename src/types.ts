@@ -194,6 +194,22 @@ export interface RunPlan {
   greedMode: boolean;
 }
 
+export interface BossKillMilestoneStatus {
+  kills: number;
+  achievementId: number;
+  name: string;
+  unlocked: boolean;
+}
+
+export interface BossKillMilestoneGroupStatus {
+  bossName: string;
+  bossDisplayName: string;
+  currentKills: number;
+  killCountKnown: boolean; // false when inferred from achievements
+  milestones: BossKillMilestoneStatus[];
+  nextMilestone: BossKillMilestoneStatus | null;
+}
+
 /** Full analysis result passed to UI */
 export interface AnalysisResult {
   dlcLevel: DlcLevel;
@@ -213,5 +229,6 @@ export interface AnalysisResult {
   bestiaryEncountered: number;
   bestiaryTotal: number;
   missingUnlocks: MissingUnlocksResult;
+  bossKillMilestones: BossKillMilestoneGroupStatus[];
   phaseProgress?: PhaseProgress;
 }

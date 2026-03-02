@@ -137,7 +137,7 @@ export function evaluateProgressionGates(
       estimatedEffort: depth === 0 ? "multi-run" : "grind",
       downstreamValue: downstream,
       score,
-      whyNow: `Opens: ${gate.opens}`,
+      whyNow: `Opens: ${gate.opens}${gate.counterCheck ? ` (${stats[gate.counterCheck.field]}/${gate.counterCheck.threshold} kills)` : ""}`,
       phase: gatePhase,
     });
   }

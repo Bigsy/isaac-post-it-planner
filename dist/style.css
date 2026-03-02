@@ -1013,3 +1013,82 @@ footer {
 .dlc-afterbirth   { background: rgba(102,153,221,0.2); color: var(--bruise); border: 1px solid rgba(102,153,221,0.25); }
 .dlc-afterbirth-plus { background: rgba(155,89,182,0.2); color: var(--cursed); border: 1px solid rgba(155,89,182,0.25); }
 .dlc-repentance   { background: rgba(200,168,78,0.15); color: var(--brass); border: 1px solid rgba(200,168,78,0.25); }
+
+/* Boss Kill Milestones */
+.milestone-group { margin-top: 0.5rem; }
+.milestone-group summary {
+  cursor: pointer;
+  color: var(--ink);
+  font-weight: 600;
+  padding: 0.5rem 0.75rem;
+  background: var(--paper);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.milestone-group summary:hover {
+  color: var(--brass);
+  border-color: rgba(200,168,78,0.2);
+}
+.milestone-group summary::-webkit-details-marker { display: none; }
+.milestone-group summary::before { content: "\25B8 "; color: var(--pencil); flex-shrink: 0; }
+.milestone-group[open] summary::before { content: "\25BE "; }
+.milestone-group[open] summary { border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
+.milestone-group.complete summary { color: var(--mold); }
+.milestone-group.complete .milestone-progress .progress-fill {
+  background: linear-gradient(90deg, #2e7d32, var(--mold), #66bb6a);
+  box-shadow: 0 0 8px rgba(76,175,80,0.2);
+}
+.milestone-summary {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.milestone-summary .progress-bar {
+  flex: 1;
+  height: 6px;
+  background: rgba(85,85,104,0.25);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 0;
+}
+.milestone-summary .progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #a08030, var(--brass), #d4b856);
+  border-radius: 3px;
+  transition: width 0.5s;
+}
+.milestone-summary .milestone-count {
+  font-size: 0.85rem;
+  color: var(--pencil);
+  white-space: nowrap;
+}
+.milestone-rows {
+  background: var(--paper);
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  padding: 0.5rem 0;
+}
+.milestone-row {
+  padding: 0.35rem 1rem;
+  font-size: 0.85rem;
+  border-bottom: 1px solid rgba(85,85,104,0.2);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.milestone-row:last-child { border-bottom: none; }
+.milestone-row.unlocked .milestone-icon { color: var(--mold); }
+.milestone-row.locked .milestone-icon { color: var(--pencil); }
+.milestone-row.next { background: rgba(200,168,78,0.06); }
+.milestone-kills { color: var(--pencil); min-width: 3.5rem; }
+.milestone-name { flex: 1; }
+.milestone-row.unlocked .milestone-name { color: var(--ink); }
+.milestone-row.locked .milestone-name { color: var(--pencil); }
+.milestone-inferred {
+  font-size: 0.75rem;
+  color: var(--pencil);
+  font-style: italic;
+}

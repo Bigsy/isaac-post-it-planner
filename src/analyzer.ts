@@ -9,6 +9,8 @@ import type {
   PhaseProgress,
   BestiaryData,
   BestiaryEntry,
+  BossKillMilestoneGroupStatus,
+  BossKillMilestoneStatus,
 } from "./types";
 import type { DlcLevel } from "./data/dlc";
 import { getAchievement, TOTAL_ACHIEVEMENTS } from "./data/achievements";
@@ -24,6 +26,7 @@ import { PROGRESSION_GATES } from "./data/progression";
 import { BESTIARY_ENTITIES, BESTIARY_TOTAL } from "./data/bestiary";
 import { analyzeMissingUnlocks } from "./data/achievement-categories";
 import { detectPhase, PHASE_DEFINITIONS, dlcAtLeast } from "./data/phases";
+import { BOSS_KILL_MILESTONE_GROUPS } from "./data/boss-milestones";
 import { achievementWikiUrl } from "./data/wiki";
 import { buildRunPlans } from "./run-planner";
 import { generateLaneRecommendations } from "./recommender";
@@ -189,6 +192,59 @@ function analyzeBestiary(bestiary: BestiaryData | null): BestiaryEntry[] {
   });
 }
 
+function analyzeBossKillMilestones(
+  unlocked: Set<number>,
+  stats: CounterStats,
+  bestiary: BestiaryData | null,
+  maxAchId: number,
+): BossKillMilestoneGroupStatus[] {
+  return BOSS_KILL_MILESTONE_GROUPS.map((group) => {
+    // Filter milestones by DLC
+    const filtered = group.milestones.filter((m) => m.achievementId <= maxAchId);
+    if (filtered.length === 0) return null;
+
+    // Get kill count from source
+    let currentKills: number;
+    let killCountKnown: boolean;
+
+    if (group.source.type === "counter") {
+      currentKills = stats[group.source.field];
+      killCountKnown = true;
+    } else if (bestiary && bestiary.kills.has(group.source.entityKey)) {
+      currentKills = bestiary.kills.get(group.source.entityKey)!;
+      killCountKnown = true;
+    } else {
+      // Infer minimum kills from highest unlocked milestone
+      killCountKnown = false;
+      currentKills = 0;
+      for (let i = filtered.length - 1; i >= 0; i--) {
+        if (unlocked.has(filtered[i].achievementId)) {
+          currentKills = filtered[i].kills;
+          break;
+        }
+      }
+    }
+
+    const milestones: BossKillMilestoneStatus[] = filtered.map((m) => ({
+      kills: m.kills,
+      achievementId: m.achievementId,
+      name: m.name,
+      unlocked: unlocked.has(m.achievementId),
+    }));
+
+    const nextMilestone = milestones.find((m) => !m.unlocked) ?? null;
+
+    return {
+      bossName: group.bossName,
+      bossDisplayName: group.bossDisplayName,
+      currentKills,
+      killCountKnown,
+      milestones,
+      nextMilestone,
+    };
+  }).filter((g): g is BossKillMilestoneGroupStatus => g !== null);
+}
+
 export function analyze(saveData: SaveData): AnalysisResult {
   const maxAchId = Math.max(0, Math.min(saveData.achievements.length - 1, TOTAL_ACHIEVEMENTS));
   const unlocked = getUnlockedIds(saveData.achievements, maxAchId);
@@ -245,6 +301,7 @@ export function analyze(saveData: SaveData): AnalysisResult {
   const bestiaryEntries = analyzeBestiary(saveData.bestiary);
   const bestiaryEncountered = bestiaryEntries.filter((e) => e.encountered > 0).length;
   const missingUnlocks = analyzeMissingUnlocks(unlocked, maxAchId);
+  const bossKillMilestones = analyzeBossKillMilestones(unlocked, stats, saveData.bestiary, maxAchId);
 
   return {
     dlcLevel,
@@ -264,6 +321,7 @@ export function analyze(saveData: SaveData): AnalysisResult {
     bestiaryEncountered,
     bestiaryTotal: bestiaryEntries.length > 0 ? BESTIARY_TOTAL : 0,
     missingUnlocks,
+    bossKillMilestones,
     phaseProgress,
   };
 }
@@ -277,6 +335,7 @@ export {
   analyzeCharacterUnlocks,
   analyzeChallenges,
   analyzeBestiary,
+  analyzeBossKillMilestones,
 };
 
 // Re-export recommender functions so existing test imports don't break
