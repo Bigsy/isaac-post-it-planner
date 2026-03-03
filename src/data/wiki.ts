@@ -28,6 +28,10 @@ const BOSS_NAME_OVERRIDES: Partial<Record<string, string | null>> = {
   "Mega Satan": "Mega_Satan",
   "Delirium": "Delirium_(Boss)",
   "Mother": "Mother_(Boss)",
+  // Boss kill milestone keys (from boss-milestones.ts bossName field)
+  "momsHeart": "Mom%27s_Heart",
+  "isaac": "Isaac_(Boss)",
+  "satan": "Satan",
 };
 
 /** Maps BOSS_SHORT_NAMES to wiki page paths (null = skip) */

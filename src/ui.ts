@@ -29,6 +29,7 @@ import {
   achievementWikiUrl,
   bestiaryWikiUrl,
   wikiLink,
+  wikiUrl,
 } from "./data/wiki";
 
 function $(id: string): HTMLElement {
@@ -299,10 +300,19 @@ function renderItemBadge(quality?: ItemQuality, name?: string): string {
 function renderRecCard(r: LaneRecommendation): string {
   const laneBadge = `<span class="badge ${LANE_BADGE_CLASS[r.lane]}">${LANE_LABELS[r.lane]}</span>`;
   const itemBadge = renderItemBadge(r.itemQuality, r.itemName);
+
+  // Link entities in blocked-by descriptions
   const blockedHtml =
     r.blockedBy.length > 0
-      ? `<div class="blocked-by">Blocked: ${r.blockedBy.map((b) => b.description).join("; ")}</div>`
+      ? `<div class="blocked-by">Blocked: ${r.blockedBy.map((b) => {
+          if (b.achievementId != null) {
+            const achUrl = achievementWikiUrl(getAchievement(b.achievementId).name);
+            return achUrl ? `${b.description} ${wikiLink(achUrl, '↗')}` : b.description;
+          }
+          return b.description;
+        }).join("; ")}</div>`
       : "";
+
   const toxicClass = r.isToxicWarning ? " toxic-warning" : "";
   let achievementLink = "";
   if (r.achievementIds.length > 0) {
@@ -312,9 +322,37 @@ function renderRecCard(r: LaneRecommendation): string {
       achievementLink = ` <a href="${url}" target="_blank" rel="noopener" class="rec-wiki-link">wiki</a>`;
     }
   }
+
+  // Link entities in the target text
+  let targetHtml = r.target;
+  if (r.lane === "character-unlock") {
+    const unlockMatch = r.target.match(/^Unlock (.+)$/);
+    if (unlockMatch) {
+      const charName = unlockMatch[1];
+      targetHtml = `Unlock ${wikiLink(characterWikiUrl(charName), charName)}`;
+    }
+  } else if (r.lane === "challenge") {
+    // Target format: "Complete #N Name — unlocks Reward"
+    const chMatch = r.target.match(/^(Complete #\d+\s+)(.+?)(\s+—\s+unlocks\s+)(.+)$/);
+    if (chMatch) {
+      const [, prefix, chName, mid, reward] = chMatch;
+      const rewardLink = wikiLink(rewardWikiUrl(reward), reward);
+      targetHtml = `${prefix}${wikiLink(challengeWikiUrl(chName), chName)}${mid}${rewardLink}`;
+    } else {
+      // No reward variant: "Complete #N Name"
+      const chMatchNoReward = r.target.match(/^(Complete #\d+\s+)(.+)$/);
+      if (chMatchNoReward) {
+        const [, prefix, chName] = chMatchNoReward;
+        targetHtml = `${prefix}${wikiLink(challengeWikiUrl(chName), chName)}`;
+      }
+    }
+  } else if (r.itemName && targetHtml.includes(r.itemName)) {
+    targetHtml = targetHtml.replace(r.itemName, wikiLink(wikiUrl(r.itemName), r.itemName));
+  }
+
   return `
     <div class="rec-card lane-${r.lane}${toxicClass}">
-      <div class="rec-header">${laneBadge}${itemBadge} ${r.target}${achievementLink}</div>
+      <div class="rec-header">${laneBadge}${itemBadge} ${targetHtml}${achievementLink}</div>
       <div class="rec-reason">${r.whyNow}</div>
       ${blockedHtml}
     </div>`;
@@ -333,12 +371,14 @@ function renderRunGoal(goal: RunGoal, isPrimary: boolean): string {
   }
 
   if (goal.isBundled) {
-    return `<div class="${baseClass} bundled">Works toward: ${goal.boss} mark (partial progress unknown)</div>`;
+    const bossLink = wikiLink(bossWikiUrl(goal.boss), goal.boss);
+    return `<div class="${baseClass} bundled">Works toward: ${bossLink} mark (partial progress unknown)</div>`;
   }
 
   const prefix = isPrimary ? "" : "Also: ";
-  const itemPart = goal.itemName ? ` -> ${goal.itemName}` : "";
-  return `<div class="${baseClass}">${prefix}${goal.boss} mark${itemPart} ${qualityBadge}</div>`;
+  const bossLink = wikiLink(bossWikiUrl(goal.boss), goal.boss);
+  const itemPart = goal.itemName ? ` -> ${wikiLink(wikiUrl(goal.itemName), goal.itemName)}` : "";
+  return `<div class="${baseClass}">${prefix}${bossLink} mark${itemPart} ${qualityBadge}</div>`;
 }
 
 function renderRunPlanCard(plan: RunPlan, currentPhase?: ProgressionPhase, phaseName?: string): string {
@@ -385,9 +425,15 @@ function renderTldr(tldr: TldrItem[] | undefined): void {
     return;
   }
 
-  const items = tldr.map((item, i) =>
-    `<li class="tldr-item"><span class="tldr-num">${i + 1}.</span> <strong>${item.summary}</strong><span class="tldr-detail">${item.detail}</span></li>`
-  ).join("");
+  const items = tldr.map((item, i) => {
+    let summaryText = item.summary;
+    if (item.links) {
+      for (const link of item.links) {
+        summaryText = summaryText.replace(link.text, wikiLink(link.url, link.text));
+      }
+    }
+    return `<li class="tldr-item"><span class="tldr-num">${i + 1}.</span> <strong>${summaryText}</strong><span class="tldr-detail">${item.detail}</span></li>`;
+  }).join("");
 
   container.innerHTML = `
     <div class="tldr-panel">
@@ -700,11 +746,13 @@ function renderBossKillMilestones(milestones: BossKillMilestoneGroupStatus[]): v
       const icon = m.unlocked ? "&#10003;" : "&#10007;";
       const stateClass = m.unlocked ? "unlocked" : "locked";
       const nextClass = !m.unlocked && group.nextMilestone?.achievementId === m.achievementId ? " next" : "";
+      const milestoneUrl = achievementWikiUrl(m.name);
+      const milestoneName = wikiLink(milestoneUrl, m.name);
       return `
         <div class="milestone-row ${stateClass}${nextClass}">
           <span class="milestone-icon">${icon}</span>
           <span class="milestone-kills">${m.kills} kills</span>
-          <span class="milestone-name">${m.name}</span>
+          <span class="milestone-name">${milestoneName}</span>
         </div>`;
     }).join("");
 
@@ -715,7 +763,7 @@ function renderBossKillMilestones(milestones: BossKillMilestoneGroupStatus[]): v
       <details class="milestone-group${completeClass}"${openAttr}>
         <summary>
           <span class="milestone-summary">
-            ${allDone ? "&#10003; " : ""}${group.bossDisplayName}
+            ${allDone ? "&#10003; " : ""}${wikiLink(bossWikiUrl(group.bossName), group.bossDisplayName)}
             <span class="progress-bar"><span class="progress-fill" style="width:${pctVal}%"></span></span>
             <span class="milestone-count">${done}/${total} — ${killsLabel}</span>
           </span>
@@ -733,8 +781,6 @@ export function renderResults(result: AnalysisResult): void {
 
   renderDlcBadge(result);
   renderOverview(result);
-  renderPhaseProgress(result.phaseProgress);
-  renderBossKillMilestones(result.bossKillMilestones);
   renderPathRecommendations(
     result.runPlans,
     result.laneRecommendations,
@@ -742,6 +788,8 @@ export function renderResults(result: AnalysisResult): void {
     result.phaseProgress?.phaseName,
     result.tldr,
   );
+  renderPhaseProgress(result.phaseProgress);
+  renderBossKillMilestones(result.bossKillMilestones);
   renderCompletionDashboard(result);
   renderCompletionGrid(result.completionGrid);
 

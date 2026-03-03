@@ -27,6 +27,7 @@ import { detectPhase, PHASE_DEFINITIONS } from "./data/phases";
 import { getItemValue, QUALITY_SCORE } from "./data/item-values";
 import { getBossPriority } from "./data/boss-order";
 import { characterItemValue, bestRemainingMark } from "./data/character-value";
+import { achievementWikiUrl, bossWikiUrl, characterWikiUrl, challengeWikiUrl, routeWikiUrl } from "./data/wiki";
 
 function computeScore(
   value: number,
@@ -797,7 +798,15 @@ export function generateTldr(
   // 1. Top unblocked progression-gate rec
   const topGate = recs.find(r => r.lane === "progression-gate" && r.blockedBy.length === 0);
   if (topGate) {
-    items.push({ lane: "progression-gate", summary: topGate.target, detail: topGate.whyNow });
+    // Extract boss name from "Defeat X ..." pattern to link inline
+    const links: { text: string; url: string }[] = [];
+    const bossMatch = topGate.target.match(/^Defeat (.+?)(?:\s+\d|\s+\(|$)/);
+    if (bossMatch) {
+      const bossName = bossMatch[1];
+      const url = bossWikiUrl(bossName);
+      if (url) links.push({ text: bossName, url });
+    }
+    items.push({ lane: "progression-gate", summary: topGate.target, detail: topGate.whyNow, links: links.length > 0 ? links : undefined });
   }
 
   // 2. Top donation rec
@@ -809,17 +818,31 @@ export function generateTldr(
   // 3. Top run plan
   if (runPlans.length > 0) {
     const plan = runPlans[0];
+    const links: { text: string; url: string }[] = [
+      { text: plan.character, url: characterWikiUrl(plan.character) },
+      { text: plan.route, url: routeWikiUrl(plan.routeWikiPath) },
+    ];
     items.push({
       lane: "completion-mark",
       summary: `${plan.character} -> ${plan.route}`,
       detail: plan.whyThisRun,
+      links,
     });
   }
 
   // 4. Top unblocked challenge rec
   const topChallenge = recs.find(r => r.lane === "challenge" && r.blockedBy.length === 0);
   if (topChallenge) {
-    items.push({ lane: "challenge", summary: topChallenge.target, detail: topChallenge.whyNow });
+    // Extract challenge name from target format "Complete #N Name — unlocks Reward"
+    const chMatch = topChallenge.target.match(/^Complete #\d+\s+(.+?)(?:\s+—|$)/);
+    const chName = chMatch ? chMatch[1] : null;
+    const links = chName ? [{ text: chName, url: challengeWikiUrl(chName) }] : undefined;
+    items.push({
+      lane: "challenge",
+      summary: topChallenge.target,
+      detail: topChallenge.whyNow,
+      links,
+    });
   }
 
   // 5. Top non-toxic guardrail tip

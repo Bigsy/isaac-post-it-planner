@@ -214,6 +214,8 @@ export interface TldrItem {
   lane: Lane;
   summary: string;
   detail: string;
+  /** Entity names in the summary that should be wiki-linked, with their URLs */
+  links?: { text: string; url: string }[];
 }
 
 /** Full analysis result passed to UI */
