@@ -109,6 +109,17 @@ export const PROGRESSION_GATES: ProgressionGate[] = [
   },
 ];
 
+/** Number of new completion marks each gate transitively enables */
+export const SYSTEM_UNLOCK_MARKS: Record<string, number> = {
+  "alt-path": 119,
+  "home-beast": 119,
+  "blue-womb": 50,
+  "void-delirium": 34,
+  "mega-satan": 20,
+  "polaroid": 17,
+  "negative": 17,
+};
+
 export function isGateCleared(
   gate: ProgressionGate,
   unlocked: Set<number>,

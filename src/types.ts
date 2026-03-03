@@ -210,6 +210,12 @@ export interface BossKillMilestoneGroupStatus {
   nextMilestone: BossKillMilestoneStatus | null;
 }
 
+export interface TldrItem {
+  lane: Lane;
+  summary: string;
+  detail: string;
+}
+
 /** Full analysis result passed to UI */
 export interface AnalysisResult {
   dlcLevel: DlcLevel;
@@ -231,4 +237,5 @@ export interface AnalysisResult {
   missingUnlocks: MissingUnlocksResult;
   bossKillMilestones: BossKillMilestoneGroupStatus[];
   phaseProgress?: PhaseProgress;
+  tldr?: TldrItem[];
 }

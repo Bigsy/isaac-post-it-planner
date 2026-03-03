@@ -11,7 +11,7 @@ import type { ProgressionGate } from "./data/progression";
 import { PHASE_DEFINITIONS } from "./data/phases";
 import { getAchievement } from "./data/achievements";
 import { getItemValue, QUALITY_SCORE, type ItemQuality } from "./data/item-values";
-import { isGateCleared } from "./data/progression";
+import { PROGRESSION_GATES, isGateCleared, SYSTEM_UNLOCK_MARKS } from "./data/progression";
 import { GATE_ROUTE_ALIGNMENT, ROUTES, TAINTED_BUNDLE_BOSSES, type RouteDef } from "./data/run-paths";
 
 const GATE_BONUS = 0.3;
@@ -176,7 +176,13 @@ function scoreRoutePlan(
     if (!goal.itemQuality) return sum;
     return sum + QUALITY_SCORE[goal.itemQuality];
   }, 0);
-  const gateBonus = gateGoals.length * GATE_BONUS;
+  const gateBonus = gateGoals.reduce((sum, goal) => {
+    const gate = goal.achievementId != null
+      ? PROGRESSION_GATES.find(g => g.achievementIds[0] === goal.achievementId)
+      : undefined;
+    const systemMarks = gate ? (SYSTEM_UNLOCK_MARKS[gate.id] ?? 0) : 0;
+    return sum + GATE_BONUS + (systemMarks > 0 ? Math.min(systemMarks / 50, 1) * 0.5 : 0);
+  }, 0);
   const hasPhaseAlignedMark = sortedMarks.some(
     (goal) => goal.achievementId != null && phaseAchievementIds.has(goal.achievementId),
   );

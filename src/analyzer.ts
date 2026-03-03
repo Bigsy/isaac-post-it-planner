@@ -29,7 +29,7 @@ import { detectPhase, PHASE_DEFINITIONS, dlcAtLeast } from "./data/phases";
 import { BOSS_KILL_MILESTONE_GROUPS } from "./data/boss-milestones";
 import { achievementWikiUrl } from "./data/wiki";
 import { buildRunPlans } from "./run-planner";
-import { generateLaneRecommendations } from "./recommender";
+import { generateLaneRecommendations, generateTldr } from "./recommender";
 
 function getUnlockedIds(achievements: number[], maxId: number = TOTAL_ACHIEVEMENTS): Set<number> {
   const ids = new Set<number>();
@@ -268,8 +268,9 @@ export function analyze(saveData: SaveData): AnalysisResult {
     : [];
   const challenges = analyzeChallenges(saveData.challenges);
   const phaseProgress = analyzePhaseProgress(unlocked, stats, dlcLevel);
+  const bossKillMilestones = analyzeBossKillMilestones(unlocked, stats, saveData.bestiary, maxAchId);
   const laneRecommendations = generateLaneRecommendations(
-    unlocked, stats, completionGrid, taintedCompletionGrid, challenges, maxAchId, dlcLevel,
+    unlocked, stats, completionGrid, taintedCompletionGrid, challenges, maxAchId, dlcLevel, bossKillMilestones,
   );
   const availableCharacters = new Set<string>();
   for (const char of completionGrid) {
@@ -301,7 +302,7 @@ export function analyze(saveData: SaveData): AnalysisResult {
   const bestiaryEntries = analyzeBestiary(saveData.bestiary);
   const bestiaryEncountered = bestiaryEntries.filter((e) => e.encountered > 0).length;
   const missingUnlocks = analyzeMissingUnlocks(unlocked, maxAchId);
-  const bossKillMilestones = analyzeBossKillMilestones(unlocked, stats, saveData.bestiary, maxAchId);
+  const tldr = generateTldr(laneRecommendations, runPlans);
 
   return {
     dlcLevel,
@@ -323,6 +324,7 @@ export function analyze(saveData: SaveData): AnalysisResult {
     missingUnlocks,
     bossKillMilestones,
     phaseProgress,
+    tldr,
   };
 }
 
@@ -347,4 +349,5 @@ export {
   evaluateChallenges,
   evaluateDonation,
   evaluateGuardrails,
+  generateTldr,
 } from "./recommender";

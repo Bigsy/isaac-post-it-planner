@@ -1120,6 +1120,46 @@ footer {
   box-shadow: 0 0 6px rgba(158,11,15,0.25);
 }
 
+/* TL;DR panel */
+.tldr-panel {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--brass) 8%, var(--parchment)), var(--parchment));
+  border: 1px solid rgba(200,168,78,0.3);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.25rem;
+}
+.tldr-header {
+  font-family: "Upheaval", system-ui, sans-serif;
+  color: var(--brass);
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+.tldr-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  counter-reset: tldr;
+}
+.tldr-item {
+  padding: 0.35rem 0;
+  border-bottom: 1px solid rgba(85,85,104,0.15);
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+.tldr-item:last-child { border-bottom: none; }
+.tldr-num {
+  color: var(--brass);
+  font-weight: 700;
+  margin-right: 0.3rem;
+}
+.tldr-detail {
+  display: block;
+  color: var(--pencil);
+  font-size: 0.8rem;
+  margin-top: 0.15rem;
+}
+
 /* Toxic warning */
 .rec-card.toxic-warning { border-left-color: var(--dried-blood); }
 .toxic-panel {

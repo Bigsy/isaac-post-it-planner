@@ -33,14 +33,14 @@ export const ITEM_VALUES: ItemValueEntry[] = [
   { achievementId: 501, itemName: "Sacred Orb", quality: "s-tier", reason: "T.Lost vs Beast — rerolls bad items automatically" },
   { achievementId: 463, itemName: "C Section", quality: "s-tier", reason: "Lilith vs Beast — homing fetus tears" },
   { achievementId: 502, itemName: "Twisted Pair", quality: "s-tier", reason: "T.Lilith vs Beast — two shooting familiars" },
+  { achievementId: 282, itemName: "D Infinity", quality: "s-tier", reason: "Isaac vs Delirium — most versatile dice item" },
+  { achievementId: 429, itemName: "The Stairway", quality: "s-tier", reason: "Jacob vs Isaac — Angel shop every floor" },
 
   // === A-tier ===
   { achievementId: 186, itemName: "Maw of the Void", quality: "a-tier", reason: "Azazel vs Hush — black heart ring" },
   { achievementId: 250, itemName: "Holy Mantle (Lost)", quality: "a-tier", reason: "879 greed donation — Lost starting item (essential)" },
   { achievementId: 103, itemName: "Death's Touch", quality: "a-tier", reason: "Challenge #17 — damage up + piercing" },
   { achievementId: 289, itemName: "Eden's Soul", quality: "a-tier", reason: "Eden vs Delirium — spawns 2 random items" },
-  { achievementId: 282, itemName: "D Infinity", quality: "a-tier", reason: "Isaac vs Delirium — cycles through all dice" },
-  { achievementId: 429, itemName: "The Stairway", quality: "a-tier", reason: "Jacob vs Isaac — angel shop every floor" },
   { achievementId: 187, itemName: "Empty Vessel", quality: "a-tier", reason: "Lazarus vs Hush — flight + shield at 0 red hearts" },
   { achievementId: 401, itemName: "Book of the Dead", quality: "a-tier", reason: "Forgotten vs Delirium — bone orbital army" },
   { achievementId: 448, itemName: "Eternal D6", quality: "a-tier", reason: "??? vs Mother — reroll with vanish chance" },
@@ -51,7 +51,30 @@ export const ITEM_VALUES: ItemValueEntry[] = [
   { achievementId: 108, itemName: "Judas' Shadow", quality: "a-tier", reason: "Judas vs Boss Rush — revive as Dark Judas" },
   { achievementId: 293, itemName: "Holy Card", quality: "a-tier", reason: "Lost vs Delirium — one-time holy mantle effect" },
 
+  // === B-tier (fills gaps that appear as "Unknown" in sample saves) ===
+  { achievementId: 168, itemName: "Cute Baby", quality: "b-tier", reason: "Magdalene vs Mom's Heart (Hard) — co-op baby" },
+  { achievementId: 171, itemName: "Glass Baby", quality: "b-tier", reason: "Cain vs Mom's Heart (Hard) — co-op baby" },
+  { achievementId: 169, itemName: "Crow Baby", quality: "b-tier", reason: "Eve vs Mom's Heart (Hard) — co-op baby" },
+  { achievementId: 177, itemName: "Fighting Baby", quality: "b-tier", reason: "Samson vs Mom's Heart (Hard) — co-op baby" },
+  { achievementId: 318, itemName: "Smelter", quality: "b-tier", reason: "Apollyon vs Mom's Heart (Hard) — absorb trinkets permanently" },
+  // Tainted character Main Bosses marks (show in unlock recs)
+  { achievementId: 550, itemName: "Holy Crown", quality: "b-tier" },
+  { achievementId: 552, itemName: "Gilded Key", quality: "b-tier" },
+  { achievementId: 554, itemName: "Your Soul", quality: "b-tier" },
+  { achievementId: 556, itemName: "Dingle Berry", quality: "b-tier" },
+  { achievementId: 558, itemName: "Strange Key", quality: "b-tier" },
+  { achievementId: 560, itemName: "Temporary Tattoo", quality: "b-tier" },
+  { achievementId: 562, itemName: "Wicked Crown", quality: "b-tier" },
+  { achievementId: 564, itemName: "Torn Pocket", quality: "b-tier" },
+  { achievementId: 566, itemName: "Nuh Uh!", quality: "b-tier" },
+  { achievementId: 572, itemName: "Keeper's Bargain", quality: "b-tier" },
+  { achievementId: 574, itemName: "Cricket Leg", quality: "b-tier" },
+  { achievementId: 576, itemName: "Polished Bone", quality: "b-tier" },
+  { achievementId: 578, itemName: "Expansion Pack", quality: "b-tier" },
+  { achievementId: 580, itemName: "RC Remote", quality: "b-tier" },
+
   // === C-tier (weak unlocks) ===
+  { achievementId: 472, itemName: "Magic Skin", quality: "c-tier", reason: "Jacob & Esau vs Mother — steals heart containers" },
   { achievementId: 51, itemName: "Abel", quality: "c-tier", reason: "Cain vs Lamb — mirrored familiar, nearly useless" },
   { achievementId: 55, itemName: "Blood Penny", quality: "c-tier", reason: "Samson vs ??? — half red heart from pennies" },
   { achievementId: 106, itemName: "Isaac's Tears", quality: "c-tier", reason: "Isaac vs Isaac — weak tear burst" },
@@ -65,6 +88,8 @@ export const ITEM_VALUES: ItemValueEntry[] = [
   { achievementId: 105, itemName: "Missing No.", quality: "toxic", reason: "Lazarus vs Boss Rush — rerolls all items every floor, run-ruining" },
   { achievementId: 30, itemName: "The Scissors", quality: "toxic", reason: "Die 100 times — weak active item" },
   { achievementId: 240, itemName: "Sticky Nickels", quality: "toxic", reason: "Keeper vs Boss Rush — nickels stick to ground, annoying" },
+  { achievementId: 500, itemName: "TMTRAINER", quality: "toxic", reason: "T.Eden vs Beast — unpredictable glitch items that can break runs" },
+  { achievementId: 593, itemName: "Corrupted Data", quality: "toxic", reason: "T.Eden vs Delirium — unpredictable glitch items that can break runs" },
 ];
 
 const valueMap = new Map<number, ItemValueEntry>();

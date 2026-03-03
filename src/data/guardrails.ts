@@ -77,4 +77,10 @@ export const GUARDRAILS: Guardrail[] = [
     description: "The Alt Path (Downpour → Corpse → Mother) requires Knife Pieces from the mirror and minecart puzzles. Angel Rooms are NOT required for Alt Path access.",
     category: "tip",
   },
+  {
+    id: "daily-challenges-early",
+    title: "Start Daily Challenges early for time-gated unlocks",
+    description: "Broken Modem requires 7 Daily completions (minimum 7 real-world days). Dedication needs 31 participations. Marathon needs a 5-win streak. Start now to avoid a bottleneck later.",
+    category: "tip",
+  },
 ];

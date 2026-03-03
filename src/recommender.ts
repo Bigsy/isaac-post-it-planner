@@ -6,6 +6,9 @@ import type {
   LaneRecommendation,
   BlockingDep,
   EffortLevel,
+  BossKillMilestoneGroupStatus,
+  TldrItem,
+  RunPlan,
 } from "./types";
 import type { DlcLevel } from "./data/dlc";
 import type { ProgressionPhase } from "./data/phases";
@@ -15,7 +18,7 @@ import {
   TAINTED_CHARACTER_UNLOCKS,
   COMPLETION_MARKS,
 } from "./data/characters";
-import { PROGRESSION_GATES, isGateCleared } from "./data/progression";
+import { PROGRESSION_GATES, isGateCleared, SYSTEM_UNLOCK_MARKS } from "./data/progression";
 import { GREED_DONATION_MILESTONES, NORMAL_DONATION_MILESTONES } from "./data/donation";
 import { CHALLENGE_PREREQS } from "./data/challenge-prereqs";
 import { getChallengeTier } from "./data/challenge-tiers";
@@ -75,11 +78,13 @@ const GATE_PHASE_MAP: Record<string, ProgressionPhase> = {
   "home-beast": "phase-3-repentance",
 };
 
+
 export function evaluateProgressionGates(
   unlocked: Set<number>,
   stats: CounterStats,
   maxAchId: number = TOTAL_ACHIEVEMENTS,
   currentPhase: ProgressionPhase = "phase-1-foundations",
+  bossKillMilestones?: BossKillMilestoneGroupStatus[],
 ): LaneRecommendation[] {
   const recs: LaneRecommendation[] = [];
 
@@ -115,11 +120,16 @@ export function evaluateProgressionGates(
       g.blockedBy.includes(gate.id),
     ).length;
 
+    // System unlock bonus: gates that enable many new marks score higher
+    const systemMarks = SYSTEM_UNLOCK_MARKS[gate.id] ?? 0;
+    const systemBonus = systemMarks > 0 ? Math.min(systemMarks / 50, 1) * 0.3 : 0;
+    const value = Math.min(downstream / 5 + systemBonus, 1);
+
     const gatePhase = GATE_PHASE_MAP[gate.id] ?? "phase-4-completion";
     const alignment = gatePhase === currentPhase ? 0.3 : 0;
 
     const score = computeScore(
-      Math.min(downstream / 5, 1), // normalize: 5 downstream = max value
+      value,
       depth === 0 ? 0.8 : 0.2,
       depth === 0 ? "multi-run" : "grind",
       0.1,
@@ -127,6 +137,25 @@ export function evaluateProgressionGates(
       0,
       alignment,
     );
+
+    let whyNow = `Opens: ${gate.opens}${gate.counterCheck ? ` (${stats[gate.counterCheck.field]}/${gate.counterCheck.threshold} kills)` : ""}`;
+    if (systemMarks > 10) {
+      whyNow += ` — unlocks ${systemMarks}+ new marks`;
+    }
+
+    // Enrich Polaroid/Negative gate text with boss kill counts
+    if (bossKillMilestones && (gate.id === "polaroid" || gate.id === "negative")) {
+      const bossName = gate.id === "polaroid" ? "isaac" : "satan";
+      const group = bossKillMilestones.find((g) => g.bossName === bossName);
+      if (group?.nextMilestone) {
+        const remaining = group.nextMilestone.kills - group.currentKills;
+        if (remaining > 0) {
+          const bossDisplay = gate.id === "polaroid" ? "Isaac" : "Satan";
+          const estimated = !group.killCountKnown ? " (estimated)" : "";
+          whyNow = `Defeat ${bossDisplay} ${remaining} more times${estimated} — ${whyNow}`;
+        }
+      }
+    }
 
     recs.push({
       lane: "progression-gate",
@@ -137,7 +166,7 @@ export function evaluateProgressionGates(
       estimatedEffort: depth === 0 ? "multi-run" : "grind",
       downstreamValue: downstream,
       score,
-      whyNow: `Opens: ${gate.opens}${gate.counterCheck ? ` (${stats[gate.counterCheck.field]}/${gate.counterCheck.threshold} kills)` : ""}`,
+      whyNow,
       phase: gatePhase,
     });
   }
@@ -149,6 +178,7 @@ export function evaluateCharacterUnlocks(
   unlocked: Set<number>,
   maxAchId: number = TOTAL_ACHIEVEMENTS,
   currentPhase: ProgressionPhase = "phase-1-foundations",
+  stats?: CounterStats,
 ): LaneRecommendation[] {
   const recs: LaneRecommendation[] = [];
 
@@ -174,7 +204,7 @@ export function evaluateCharacterUnlocks(
     const qualityBonus = Math.min(charValue / 5, 1);
     const alignment = PHASE1_CHAR_IDS.has(id) && currentPhase === "phase-1-foundations" ? 0.2 : 0;
 
-    const score = computeScore(
+    let score = computeScore(
       markCount > 0 ? Math.min(markCount / 13, 1) : 0.3,
       0.6,
       "single-run",
@@ -185,6 +215,13 @@ export function evaluateCharacterUnlocks(
     );
 
     const bestInfo = best ? ` — best remaining: ${best.itemName} (${best.quality})` : "";
+    let whyNow = `${getAchievement(id).unlockDescription} — opens ${markCount} completion marks${bestInfo}`;
+
+    // The Lost (ach 80): defer if Holy Mantle not yet available via Greed donation
+    if (id === 80 && stats && stats.greedDonationCoins < 879) {
+      score *= 0.5;
+      whyNow += " (defer playing until 879 Greed donation for Holy Mantle)";
+    }
 
     recs.push({
       lane: "character-unlock",
@@ -195,7 +232,7 @@ export function evaluateCharacterUnlocks(
       estimatedEffort: "single-run",
       downstreamValue: markCount,
       score,
-      whyNow: `${getAchievement(id).unlockDescription} — opens ${markCount} completion marks${bestInfo}`,
+      whyNow,
       itemQuality: best?.quality,
       itemName: best?.itemName,
     });
@@ -598,7 +635,24 @@ export function evaluateDonation(
 ): LaneRecommendation[] {
   const recs: LaneRecommendation[] = [];
   const donationAlignment =
-    currentPhase === "phase-1-foundations" || currentPhase === "phase-4-completion" ? 0.2 : 0;
+    currentPhase === "phase-1-foundations" || currentPhase === "phase-2-expansion" ? 0.2
+    : currentPhase === "phase-3-repentance" ? 0.1
+    : 0;
+
+  // Greed mode urgency: if donation is 0 and Mom beaten, prompt to start
+  if (stats.greedDonationCoins === 0 && unlocked.has(4)) {
+    recs.push({
+      lane: "donation",
+      target: "Start Greed Mode — rotate characters to build donation machine",
+      achievementIds: [],
+      blockedBy: [],
+      blockerDepth: 0,
+      estimatedEffort: "grind",
+      downstreamValue: 5,
+      score: computeScore(0.7, 0.6, "grind", 0.2, 0, 0, donationAlignment),
+      whyNow: "The Greed Machine jams more per character — rotate early. Key milestones: 500 (Greedier mode), 879 (Holy Mantle for The Lost), 1000 (Keeper unlock)",
+    });
+  }
 
   // Find next unmet Greed milestone (filtered by DLC)
   const filteredGreed = GREED_DONATION_MILESTONES.filter((m) => m.achievementId <= maxAchId);
@@ -705,12 +759,13 @@ export function generateLaneRecommendations(
   challenges: ChallengeInfo[],
   maxAchId: number = TOTAL_ACHIEVEMENTS,
   dlcLevel: DlcLevel = "repentance",
+  bossKillMilestones?: BossKillMilestoneGroupStatus[],
 ): LaneRecommendation[] {
   const currentPhase = detectPhase(unlocked, stats, dlcLevel);
 
   const allRecs = [
-    ...evaluateProgressionGates(unlocked, stats, maxAchId, currentPhase),
-    ...evaluateCharacterUnlocks(unlocked, maxAchId, currentPhase),
+    ...evaluateProgressionGates(unlocked, stats, maxAchId, currentPhase, bossKillMilestones),
+    ...evaluateCharacterUnlocks(unlocked, maxAchId, currentPhase, stats),
     ...evaluateCompletionMarks(unlocked, baseGrid, taintedGrid, currentPhase),
     ...evaluateChallenges(unlocked, challenges, currentPhase),
     ...evaluateDonation(unlocked, stats, maxAchId, currentPhase),
@@ -731,4 +786,48 @@ export function generateLaneRecommendations(
   });
 
   return allRecs;
+}
+
+export function generateTldr(
+  recs: LaneRecommendation[],
+  runPlans: RunPlan[],
+): TldrItem[] {
+  const items: TldrItem[] = [];
+
+  // 1. Top unblocked progression-gate rec
+  const topGate = recs.find(r => r.lane === "progression-gate" && r.blockedBy.length === 0);
+  if (topGate) {
+    items.push({ lane: "progression-gate", summary: topGate.target, detail: topGate.whyNow });
+  }
+
+  // 2. Top donation rec
+  const topDonation = recs.find(r => r.lane === "donation");
+  if (topDonation) {
+    items.push({ lane: "donation", summary: topDonation.target, detail: topDonation.whyNow });
+  }
+
+  // 3. Top run plan
+  if (runPlans.length > 0) {
+    const plan = runPlans[0];
+    items.push({
+      lane: "completion-mark",
+      summary: `${plan.character} -> ${plan.route}`,
+      detail: plan.whyThisRun,
+    });
+  }
+
+  // 4. Top unblocked challenge rec
+  const topChallenge = recs.find(r => r.lane === "challenge" && r.blockedBy.length === 0);
+  if (topChallenge) {
+    items.push({ lane: "challenge", summary: topChallenge.target, detail: topChallenge.whyNow });
+  }
+
+  // 5. Top non-toxic guardrail tip
+  const topTip = recs.find(r => r.lane === "guardrail" && !r.isToxicWarning && r.score < 0.1)
+    ?? recs.find(r => r.lane === "guardrail" && !r.isToxicWarning);
+  if (topTip) {
+    items.push({ lane: "guardrail", summary: topTip.target, detail: topTip.whyNow });
+  }
+
+  return items.slice(0, 5);
 }

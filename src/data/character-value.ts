@@ -2,6 +2,7 @@ import { COMPLETION_MARKS, BOSS_NAMES } from "./characters";
 import { TAINTED_COMPLETION_MARKS, TAINTED_BOSS_NAMES } from "./tainted-marks";
 import { getItemValue, QUALITY_SCORE } from "./item-values";
 import type { ItemQuality } from "./item-values";
+import { getAchievement } from "./achievements";
 
 const DEFAULT_QUALITY: ItemQuality = "b-tier";
 
@@ -55,7 +56,7 @@ export function bestRemainingMark(
     const entry = getItemValue(achId);
     const quality = entry?.quality ?? DEFAULT_QUALITY;
     const score = QUALITY_SCORE[quality];
-    const itemName = entry?.itemName ?? "Unknown";
+    const itemName = entry?.itemName ?? getAchievement(achId).name;
 
     if (score > bestScore) {
       bestScore = score;

@@ -11,6 +11,7 @@ import type {
   RunGoal,
   RunPlan,
   BossKillMilestoneGroupStatus,
+  TldrItem,
 } from "./types";
 import type { ProgressionPhase } from "./data/phases";
 import type { ItemQuality } from "./data/item-values";
@@ -354,7 +355,10 @@ function renderRunPlanCard(plan: RunPlan, currentPhase?: ProgressionPhase, phase
     goals.push(renderRunGoal(goal, goal === plan.primaryGoal));
   }
   if (plan.routeId === "mega-satan-dr" || plan.routeId === "mega-satan-ch") {
-    goals.push(`<div class="run-goal note">Requires Angel Room key pieces in-run</div>`);
+    const alreadyMentioned = goals.some(g => g.includes("Key Piece") || g.includes("Angel Room"));
+    if (!alreadyMentioned) {
+      goals.push(`<div class="run-goal note">Requires Angel Room key pieces in-run</div>`);
+    }
   }
 
   return `
@@ -372,16 +376,40 @@ function renderRunPlanCard(plan: RunPlan, currentPhase?: ProgressionPhase, phase
   `;
 }
 
+function renderTldr(tldr: TldrItem[] | undefined): void {
+  const container = document.getElementById("tldr");
+  if (!container) return;
+
+  if (!tldr || tldr.length === 0) {
+    container.innerHTML = "";
+    return;
+  }
+
+  const items = tldr.map((item, i) =>
+    `<li class="tldr-item"><span class="tldr-num">${i + 1}.</span> <strong>${item.summary}</strong><span class="tldr-detail">${item.detail}</span></li>`
+  ).join("");
+
+  container.innerHTML = `
+    <div class="tldr-panel">
+      <div class="tldr-header">TL;DR — Do These Next</div>
+      <ol class="tldr-list">${items}</ol>
+    </div>
+  `;
+}
+
 function renderPathRecommendations(
   runPlans: RunPlan[],
   recs: LaneRecommendation[],
   currentPhase?: ProgressionPhase,
   phaseName?: string,
+  tldr?: TldrItem[],
 ): void {
   const warningsEl = document.getElementById("warnings");
   const criticalEl = document.getElementById("critical-path");
   const secondaryEl = document.getElementById("secondary-path");
   if (!warningsEl || !criticalEl || !secondaryEl) return;
+
+  renderTldr(tldr);
 
   if (recs.length === 0 && runPlans.length === 0) {
     warningsEl.innerHTML = "";
@@ -712,6 +740,7 @@ export function renderResults(result: AnalysisResult): void {
     result.laneRecommendations,
     result.phaseProgress?.currentPhase,
     result.phaseProgress?.phaseName,
+    result.tldr,
   );
   renderCompletionDashboard(result);
   renderCompletionGrid(result.completionGrid);
