@@ -378,8 +378,8 @@ h3 {
   text-shadow: 0 0 20px rgba(200,168,78,0.25);
 }
 .stat-value-hero .hud-icon {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
 }
 .stat-card.primary .progress-bar {
   height: 10px;
@@ -455,10 +455,10 @@ h3 {
   vertical-align: middle;
 }
 
-/* HUD stat card icons (20x20) */
+/* HUD stat card icons (24x24) */
 .hud-icon {
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   margin-right: 6px;
 }
 

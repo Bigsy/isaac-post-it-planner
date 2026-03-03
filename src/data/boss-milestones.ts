@@ -63,4 +63,13 @@ export const BOSS_KILL_MILESTONE_GROUPS: BossKillMilestoneGroup[] = [
       { kills: 5, achievementId: 78, name: "The Negative" },
     ],
   },
+  {
+    bossName: "hush",
+    bossDisplayName: "Hush",
+    source: { type: "bestiary", entityKey: "407_0" },
+    milestones: [
+      { kills: 1, achievementId: 320, name: "New Area (Void)" },
+      { kills: 3, achievementId: 407, name: "A Secret Exit (Alt Path)" },
+    ],
+  },
 ];

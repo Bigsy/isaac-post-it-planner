@@ -68,13 +68,11 @@ function renderOverview(result: AnalysisResult): void {
       </div>
       <div class="stat-card">
         <div class="stat-value">${hudIcon("collectibles")}${result.collectiblesSeen}/${result.totalCollectibles}</div>
-        <div class="stat-label">Collectibles Seen (${pct(result.collectiblesSeen, result.totalCollectibles)}%)</div>
-        <div class="progress-bar"><div class="progress-fill" style="width:${pct(result.collectiblesSeen, result.totalCollectibles)}%"></div></div>
+        <div class="stat-label">Collectibles (${pct(result.collectiblesSeen, result.totalCollectibles)}%)</div>
       </div>${result.bestiaryTotal > 0 ? `
       <div class="stat-card">
         <div class="stat-value">${hudIcon("bestiary")}${result.bestiaryEncountered}/${result.bestiaryTotal}</div>
         <div class="stat-label">Bestiary (${pct(result.bestiaryEncountered, result.bestiaryTotal)}%)</div>
-        <div class="progress-bar"><div class="progress-fill" style="width:${pct(result.bestiaryEncountered, result.bestiaryTotal)}%"></div></div>
       </div>` : ""}
       <div class="stat-card">
         <div class="stat-value">${hudIcon("momKills")}${s.momKills}</div>
