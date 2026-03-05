@@ -441,6 +441,29 @@ function renderTldr(tldr: TldrItem[] | undefined): void {
   `;
 }
 
+function selectSecondaryRecommendations(
+  secondary: LaneRecommendation[],
+  limit: number,
+): LaneRecommendation[] {
+  const laneCaps: Partial<Record<Lane, number>> = {
+    challenge: 3,
+    "character-unlock": 3,
+  };
+  const selected: LaneRecommendation[] = [];
+  const counts = new Map<Lane, number>();
+
+  for (const rec of secondary) {
+    if (selected.length >= limit) break;
+    const cap = laneCaps[rec.lane];
+    const used = counts.get(rec.lane) ?? 0;
+    if (cap != null && used >= cap) continue;
+    selected.push(rec);
+    counts.set(rec.lane, used + 1);
+  }
+
+  return selected;
+}
+
 function renderPathRecommendations(
   runPlans: RunPlan[],
   recs: LaneRecommendation[],
@@ -475,7 +498,7 @@ function renderPathRecommendations(
   }
   warningsEl.innerHTML = warningsHtml;
 
-  // Critical Path: preferred run plans; fallback to critical lane recommendations
+  // Critical Path: show run plans first, then current-phase gate recs.
   let criticalHtml = "";
   if (runPlans.length > 0) {
     criticalHtml += `<div class="path-group"><div class="path-group-header">Suggested Runs</div>`;
@@ -483,10 +506,13 @@ function renderPathRecommendations(
       criticalHtml += renderRunPlanCard(plan, currentPhase, phaseName);
     }
     criticalHtml += `</div>`;
-  } else if (critical.length > 0) {
-    const heading = phaseName ? `Critical Path: ${phaseName}` : "Critical Path";
+  }
+  if (critical.length > 0) {
+    const heading = runPlans.length > 0
+      ? phaseName ? `Current-Phase Gates: ${phaseName}` : "Current-Phase Gates"
+      : phaseName ? `Critical Path: ${phaseName}` : "Critical Path";
     criticalHtml += `<div class="path-group"><div class="path-group-header">${heading}</div>`;
-    for (const rec of critical.slice(0, 8)) {
+    for (const rec of critical.slice(0, runPlans.length > 0 ? 4 : 8)) {
       criticalHtml += renderRecCard(rec);
     }
     criticalHtml += `</div>`;
@@ -495,9 +521,10 @@ function renderPathRecommendations(
 
   // Secondary: top 10
   let secondaryHtml = "";
-  if (secondary.length > 0) {
+  const compactSecondary = selectSecondaryRecommendations(secondary, 10);
+  if (compactSecondary.length > 0) {
     secondaryHtml += `<div class="path-group"><div class="path-group-header">Also Worth Doing</div>`;
-    for (const r of secondary.slice(0, 10)) {
+    for (const r of compactSecondary) {
       secondaryHtml += renderRecCard(r);
     }
     secondaryHtml += `</div>`;

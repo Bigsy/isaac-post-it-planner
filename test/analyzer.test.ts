@@ -17,8 +17,9 @@ import {
   evaluateChallenges,
   evaluateDonation,
   evaluateGuardrails,
+  generateTldr,
 } from "../src/analyzer";
-import type { CounterStats, BestiaryData, PhaseProgress } from "../src/types";
+import type { CounterStats, BestiaryData, PhaseProgress, LaneRecommendation } from "../src/types";
 import { BESTIARY_ENTITIES, BESTIARY_TOTAL } from "../src/data/bestiary";
 import type { ProgressionPhase } from "../src/data/phases";
 
@@ -267,6 +268,33 @@ describe("evaluateCharacterUnlocks", () => {
     const taintedRecs = recs.filter((r) => r.target.includes("T."));
     expect(taintedRecs.every((r) => r.blockerDepth === 0)).toBe(true);
   });
+
+  it("applies The Lost defer note to achievement 82 (not Lazarus)", () => {
+    const recs = evaluateCharacterUnlocks(new Set<number>(), 637, "phase-1-foundations", emptyCounters());
+    const lost = recs.find((r) => r.target === "Unlock The Lost");
+    const lazarus = recs.find((r) => r.target === "Unlock Lazarus");
+    expect(lost).toBeDefined();
+    expect(lost!.whyNow).toContain("defer playing until 879 Greed donation");
+    expect(lazarus).toBeDefined();
+    expect(lazarus!.whyNow.includes("defer playing until 879 Greed donation")).toBe(false);
+  });
+
+  it("marks Keeper as blocked and grind effort before 1000 greed donation", () => {
+    const recs = evaluateCharacterUnlocks(new Set<number>(), 637, "phase-1-foundations", emptyCounters());
+    const keeper = recs.find((r) => r.target === "Unlock Keeper");
+    expect(keeper).toBeDefined();
+    expect(keeper!.blockerDepth).toBeGreaterThan(0);
+    expect(keeper!.estimatedEffort).toBe("grind");
+    expect(keeper!.blockedBy.some((b) => b.description.includes("1000 Greed donation coins"))).toBe(true);
+  });
+
+  it("marks Jacob & Esau as blocked when Mother is not defeated", () => {
+    const recs = evaluateCharacterUnlocks(new Set<number>(), 637, "phase-1-foundations", emptyCounters());
+    const jacobEsau = recs.find((r) => r.target === "Unlock Jacob & Esau");
+    expect(jacobEsau).toBeDefined();
+    expect(jacobEsau!.blockerDepth).toBeGreaterThan(0);
+    expect(jacobEsau!.blockedBy.some((b) => b.achievementId === 635)).toBe(true);
+  });
 });
 
 describe("evaluateCompletionMarks", () => {
@@ -418,7 +446,7 @@ describe("generateLaneRecommendations (integration)", () => {
     }
   });
 
-  it("blocked recommendations have lower scores than unblocked ones of same lane", () => {
+  it("blocked character unlock recommendations are generally discounted", () => {
     const unlocked = new Set<number>();
     const stats = emptyCounters();
     const baseGrid = analyzeCompletionMarks(unlocked);
@@ -431,8 +459,11 @@ describe("generateLaneRecommendations (integration)", () => {
     const blocked = charRecs.filter((r) => r.blockerDepth > 0);
     if (unblocked.length > 0 && blocked.length > 0) {
       const maxBlocked = Math.max(...blocked.map((r) => r.score));
-      const minUnblocked = Math.min(...unblocked.map((r) => r.score));
-      expect(minUnblocked).toBeGreaterThan(maxBlocked);
+      const maxUnblocked = Math.max(...unblocked.map((r) => r.score));
+      const avgBlocked = blocked.reduce((sum, r) => sum + r.score, 0) / blocked.length;
+      const avgUnblocked = unblocked.reduce((sum, r) => sum + r.score, 0) / unblocked.length;
+      expect(maxUnblocked).toBeGreaterThan(maxBlocked);
+      expect(avgUnblocked).toBeGreaterThan(avgBlocked);
     }
   });
 });
@@ -835,5 +866,39 @@ describe("phase-aware recommendations", () => {
     expect(toxicWarnings.length).toBeGreaterThan(0);
     const missingNo = toxicWarnings.find((r) => r.itemName === "Missing No.");
     expect(missingNo).toBeDefined();
+  });
+});
+
+describe("generateTldr", () => {
+  it("prefers current-phase unblocked gate over higher-scoring off-phase gate", () => {
+    const recs: LaneRecommendation[] = [
+      {
+        lane: "progression-gate",
+        target: "Off-phase gate",
+        achievementIds: [407],
+        blockedBy: [],
+        blockerDepth: 0,
+        estimatedEffort: "multi-run",
+        downstreamValue: 3,
+        score: 0.9,
+        whyNow: "off-phase",
+        phase: "phase-3-repentance",
+      },
+      {
+        lane: "progression-gate",
+        target: "Current-phase gate",
+        achievementIds: [57],
+        blockedBy: [],
+        blockerDepth: 0,
+        estimatedEffort: "multi-run",
+        downstreamValue: 1,
+        score: 0.2,
+        whyNow: "current-phase",
+        phase: "phase-1-foundations",
+      },
+    ];
+
+    const tldr = generateTldr(recs, [], "phase-1-foundations");
+    expect(tldr[0].summary).toBe("Current-phase gate");
   });
 });

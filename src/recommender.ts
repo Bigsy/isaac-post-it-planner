@@ -79,6 +79,49 @@ const GATE_PHASE_MAP: Record<string, ProgressionPhase> = {
   "home-beast": "phase-3-repentance",
 };
 
+const PHASE_MATCH_MULTIPLIER = 1.35;
+const PHASE_MISMATCH_MULTIPLIER = 0.8;
+
+interface CounterBlocker {
+  field: keyof CounterStats;
+  threshold: number;
+  description: string;
+}
+
+interface BaseUnlockMeta {
+  requiredAchievements?: number[];
+  counterBlockers?: CounterBlocker[];
+  effort?: EffortLevel;
+  risk?: number;
+}
+
+const BASE_UNLOCK_META: Record<number, BaseUnlockMeta> = {
+  82: {
+    effort: "multi-run",
+    risk: 0.2,
+  },
+  251: {
+    counterBlockers: [
+      {
+        field: "greedDonationCoins",
+        threshold: 1000,
+        description: "Reach 1000 Greed donation coins",
+      },
+    ],
+    effort: "grind",
+    risk: 0.35,
+  },
+  390: {
+    effort: "grind",
+    risk: 0.35,
+  },
+  405: {
+    requiredAchievements: [635],
+    effort: "multi-run",
+    risk: 0.2,
+  },
+};
+
 
 export function evaluateProgressionGates(
   unlocked: Set<number>,
@@ -129,7 +172,7 @@ export function evaluateProgressionGates(
     const gatePhase = GATE_PHASE_MAP[gate.id] ?? "phase-4-completion";
     const alignment = gatePhase === currentPhase ? 0.3 : 0;
 
-    const score = computeScore(
+    let score = computeScore(
       value,
       depth === 0 ? 0.8 : 0.2,
       depth === 0 ? "multi-run" : "grind",
@@ -138,6 +181,7 @@ export function evaluateProgressionGates(
       0,
       alignment,
     );
+    score *= gatePhase === currentPhase ? PHASE_MATCH_MULTIPLIER : PHASE_MISMATCH_MULTIPLIER;
 
     let whyNow = `Opens: ${gate.opens}${gate.counterCheck ? ` (${stats[gate.counterCheck.field]}/${gate.counterCheck.threshold} kills)` : ""}`;
     if (systemMarks > 10) {
@@ -205,12 +249,38 @@ export function evaluateCharacterUnlocks(
     const qualityBonus = Math.min(charValue / 5, 1);
     const alignment = PHASE1_CHAR_IDS.has(id) && currentPhase === "phase-1-foundations" ? 0.2 : 0;
 
+    const meta = BASE_UNLOCK_META[id];
+    const blockers: BlockingDep[] = [];
+    let depth = 0;
+    if (meta?.requiredAchievements && meta.requiredAchievements.length > 0) {
+      const depResult = checkBlockingDeps(meta.requiredAchievements, unlocked);
+      blockers.push(...depResult.deps);
+      depth += depResult.depth;
+    }
+    if (meta?.counterBlockers) {
+      for (const blocker of meta.counterBlockers) {
+        const current = stats ? stats[blocker.field] : 0;
+        if (!stats || current < blocker.threshold) {
+          blockers.push({
+            description: `${blocker.description} (${current}/${blocker.threshold})`,
+            achievementId: null,
+            met: false,
+          });
+          depth++;
+        }
+      }
+    }
+
+    const effort = meta?.effort ?? "single-run";
+    const risk = meta?.risk ?? 0.1;
+    const readiness = depth === 0 ? 0.6 : 0.2;
+
     let score = computeScore(
       markCount > 0 ? Math.min(markCount / 13, 1) : 0.3,
-      0.6,
-      "single-run",
-      0.1,
-      0,
+      readiness,
+      effort,
+      risk,
+      depth,
       qualityBonus,
       alignment,
     );
@@ -218,8 +288,8 @@ export function evaluateCharacterUnlocks(
     const bestInfo = best ? ` — best remaining: ${best.itemName} (${best.quality})` : "";
     let whyNow = `${getAchievement(id).unlockDescription} — opens ${markCount} completion marks${bestInfo}`;
 
-    // The Lost (ach 80): defer if Holy Mantle not yet available via Greed donation
-    if (id === 80 && stats && stats.greedDonationCoins < 879) {
+    // The Lost (ach 82): defer if Holy Mantle not yet available via Greed donation
+    if (id === 82 && stats && stats.greedDonationCoins < 879) {
       score *= 0.5;
       whyNow += " (defer playing until 879 Greed donation for Holy Mantle)";
     }
@@ -228,9 +298,9 @@ export function evaluateCharacterUnlocks(
       lane: "character-unlock",
       target: `Unlock ${name}`,
       achievementIds: [id],
-      blockedBy: [],
-      blockerDepth: 0,
-      estimatedEffort: "single-run",
+      blockedBy: blockers,
+      blockerDepth: depth,
+      estimatedEffort: effort,
       downstreamValue: markCount,
       score,
       whyNow,
@@ -792,11 +862,17 @@ export function generateLaneRecommendations(
 export function generateTldr(
   recs: LaneRecommendation[],
   runPlans: RunPlan[],
+  currentPhase?: ProgressionPhase,
 ): TldrItem[] {
   const items: TldrItem[] = [];
 
   // 1. Top unblocked progression-gate rec
-  const topGate = recs.find(r => r.lane === "progression-gate" && r.blockedBy.length === 0);
+  const topGate = recs.find(
+    (r) =>
+      r.lane === "progression-gate" &&
+      r.blockedBy.length === 0 &&
+      (!currentPhase || r.phase === currentPhase),
+  ) ?? recs.find(r => r.lane === "progression-gate" && r.blockedBy.length === 0);
   if (topGate) {
     // Extract boss name from "Defeat X ..." pattern to link inline
     const links: { text: string; url: string }[] = [];

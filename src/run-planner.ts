@@ -78,9 +78,9 @@ function buildGateGoals(
   return goals;
 }
 
-function buildPhaseGoals(markGoals: RunGoal[], phaseAchievementIds: Set<number>): RunGoal[] {
+function buildPhaseGoals(goals: RunGoal[], phaseAchievementIds: Set<number>): RunGoal[] {
   const phaseGoalIds = new Set<number>();
-  for (const goal of markGoals) {
+  for (const goal of goals) {
     if (goal.achievementId == null) continue;
     if (phaseAchievementIds.has(goal.achievementId)) {
       phaseGoalIds.add(goal.achievementId);
@@ -186,12 +186,16 @@ function scoreRoutePlan(
   const hasPhaseAlignedMark = sortedMarks.some(
     (goal) => goal.achievementId != null && phaseAchievementIds.has(goal.achievementId),
   );
-  const phaseBonus = hasPhaseAlignedMark ? PHASE_BONUS : 0;
+  const hasPhaseAlignedGate = gateGoals.some(
+    (goal) => goal.achievementId != null && phaseAchievementIds.has(goal.achievementId),
+  );
+  const hasPhaseAlignedGoal = hasPhaseAlignedMark || hasPhaseAlignedGate;
+  const phaseBonus = hasPhaseAlignedGoal ? PHASE_BONUS : 0;
   const timedPenalty = route.timed ? TIMED_PENALTY : 0;
   const bundledPenalty = bundledCount * BUNDLED_PENALTY;
   const score = markScore + gateBonus + phaseBonus + timedPenalty + bundledPenalty;
 
-  const phaseGoals = buildPhaseGoals(sortedMarks, phaseAchievementIds);
+  const phaseGoals = buildPhaseGoals([...sortedMarks, ...gateGoals], phaseAchievementIds);
   const goals = [
     primaryGoal,
     ...sortedMarks.filter((goal) => goal !== primaryGoal),
@@ -215,7 +219,7 @@ function scoreRoutePlan(
       bundledPenalty,
     },
     score,
-    isPhaseAligned: hasPhaseAlignedMark,
+    isPhaseAligned: hasPhaseAlignedGoal,
   };
 }
 

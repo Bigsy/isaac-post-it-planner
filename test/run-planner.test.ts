@@ -221,4 +221,30 @@ describe("buildRunPlans", () => {
 
     expect(runPlans[0].routeId).toBe("mega-satan-ch");
   });
+
+  it("adds phase-criterion goals from aligned gate goals", () => {
+    const baseGrid = [
+      baseCharacter("Isaac", [
+        { boss: "Mom's Heart", done: false, achievementId: 10 },
+        { boss: "Isaac", done: false, achievementId: 11 },
+      ]),
+    ];
+
+    const runPlans = buildRunPlans(
+      baseGrid,
+      [],
+      new Set<number>(),
+      new Set<string>(["Isaac"]),
+      PHASE_PROGRESS,
+      PROGRESSION_GATES,
+      { ...EMPTY_STATS, momsHeartKills: 1 },
+      "repentance",
+      637,
+    );
+
+    expect(runPlans.length).toBeGreaterThan(0);
+    expect(
+      runPlans[0].goals.some((g) => g.type === "phase-criterion" && g.achievementId === 57),
+    ).toBe(true);
+  });
 });

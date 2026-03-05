@@ -302,7 +302,7 @@ export function analyze(saveData: SaveData): AnalysisResult {
   const bestiaryEntries = analyzeBestiary(saveData.bestiary);
   const bestiaryEncountered = bestiaryEntries.filter((e) => e.encountered > 0).length;
   const missingUnlocks = analyzeMissingUnlocks(unlocked, maxAchId);
-  const tldr = generateTldr(laneRecommendations, runPlans);
+  const tldr = generateTldr(laneRecommendations, runPlans, phaseProgress.currentPhase);
 
   return {
     dlcLevel,
