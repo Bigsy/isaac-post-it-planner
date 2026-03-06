@@ -81,6 +81,21 @@ const GATE_PHASE_MAP: Record<string, ProgressionPhase> = {
 
 const PHASE_MATCH_MULTIPLIER = 1.35;
 const PHASE_MISMATCH_MULTIPLIER = 0.8;
+const GATE_STRATEGIC_BONUS: Partial<Record<string, number>> = {
+  "mom": 0.08,
+  "it-lives": 0.12,
+  "sheol-cathedral": 0.16,
+  "polaroid": 0.28,
+  "negative": 0.28,
+  "blue-womb": 0.22,
+  "mega-satan": 0.18,
+  "void-delirium": 0.18,
+  "alt-path": 0.24,
+  "home-beast": 0.2,
+};
+const GREED_START_BONUS = 0.22;
+const GREED_STRATEGIC_BONUS = 0.18;
+const NORMAL_STRATEGIC_BONUS = 0.1;
 
 interface CounterBlocker {
   field: keyof CounterStats;
@@ -182,6 +197,12 @@ export function evaluateProgressionGates(
       alignment,
     );
     score *= gatePhase === currentPhase ? PHASE_MATCH_MULTIPLIER : PHASE_MISMATCH_MULTIPLIER;
+    // Major route gates unlock whole branches of progression, so they should surface
+    // ahead of generic cleanup even when they take multiple runs.
+    const strategicBonus = GATE_STRATEGIC_BONUS[gate.id] ?? 0;
+    if (strategicBonus > 0) {
+      score += gatePhase === currentPhase ? strategicBonus : strategicBonus * 0.6;
+    }
 
     let whyNow = `Opens: ${gate.opens}${gate.counterCheck ? ` (${stats[gate.counterCheck.field]}/${gate.counterCheck.threshold} kills)` : ""}`;
     if (systemMarks > 10) {
@@ -675,8 +696,7 @@ export function evaluateChallenges(
     const value = tierValue[tier] ?? 0.5;
     const effort: EffortLevel = "single-run";
 
-    const alignment = currentPhase === "phase-1-foundations" ? 0.1 : 0;
-    const score = computeScore(value, depth === 0 ? 0.7 : 0.2, effort, 0.1, depth, 0, alignment);
+    const score = computeScore(value, depth === 0 ? 0.45 : 0.2, effort, 0.2, depth, 0, 0);
 
     const rewardText = ch.reward ? ` — unlocks ${ch.reward}` : "";
 
@@ -720,7 +740,7 @@ export function evaluateDonation(
       blockerDepth: 0,
       estimatedEffort: "grind",
       downstreamValue: 5,
-      score: computeScore(0.7, 0.6, "grind", 0.2, 0, 0, donationAlignment),
+      score: computeScore(0.7, 0.6, "grind", 0.2, 0, 0, donationAlignment) + GREED_START_BONUS,
       whyNow: "The Greed Machine jams more per character — rotate early. Key milestones: 500 (Greedier mode), 879 (Holy Mantle for The Lost), 1000 (Keeper unlock)",
     });
   }
@@ -732,7 +752,7 @@ export function evaluateDonation(
     if (unlocked.has(m.achievementId)) {
       lastGreedMet = m.coins;
     } else {
-      const score = computeScore(
+      let score = computeScore(
         m.strategic ? 0.8 : 0.3,
         lastGreedMet > 0 ? 0.5 : 0.3,
         "grind",
@@ -741,6 +761,9 @@ export function evaluateDonation(
         0,
         donationAlignment,
       );
+      if (m.strategic) {
+        score += GREED_STRATEGIC_BONUS;
+      }
 
       const coinProgress = `(${stats.greedDonationCoins}/${m.coins} coins)`;
       recs.push({
@@ -768,7 +791,7 @@ export function evaluateDonation(
       lastNormalMet = m.coins;
     } else {
       const coinProgress = `(${stats.normalDonationCoins}/${m.coins} coins)`;
-      const score = computeScore(
+      let score = computeScore(
         m.strategic ? 0.4 : 0.2,
         lastNormalMet > 0 ? 0.4 : 0.2,
         "grind",
@@ -777,6 +800,9 @@ export function evaluateDonation(
         0,
         donationAlignment,
       );
+      if (m.strategic) {
+        score += NORMAL_STRATEGIC_BONUS;
+      }
       recs.push({
         lane: "donation",
         target: `Normal Donation: reach ${m.coins} coins for ${m.name}`,

@@ -40,14 +40,13 @@ export const PHASE_DEFINITIONS: PhaseDefinition[] = [
   {
     id: "phase-1-foundations",
     name: "Foundations",
-    description: "Core unlocks and first donation milestone",
+    description: "Core route unlocks through Chest and Dark Room",
     completionCriteria: [
       { type: "achievement", achievementId: 79, description: "Unlock Azazel" },
       { type: "achievement", achievementId: 4, description: "Beat Mom / reach Womb" },
       { type: "achievement", achievementId: 34, description: "Beat It Lives!" },
       { type: "achievement", achievementId: 78, description: "Unlock The Negative" },
       { type: "achievement", achievementId: 57, description: "Unlock The Polaroid" },
-      { type: "achievement", achievementId: 138, description: "Donation machine to 999 (Stop Watch)" },
     ],
   },
   {
@@ -76,8 +75,9 @@ export const PHASE_DEFINITIONS: PhaseDefinition[] = [
   {
     id: "phase-4-completion",
     name: "Completion",
-    description: "Greedier, donation grinds, and Dead God",
+    description: "Donation grinds, Greedier, and Dead God",
     completionCriteria: [
+      { type: "achievement", achievementId: 138, description: "Donation machine to 999 (Stop Watch)" },
       { type: "achievement", achievementId: 341, description: "Greedier (500 greed donation)" },
       { type: "achievement", achievementId: 250, description: "Holy Mantle for Lost (879 greed donation)" },
       { type: "achievement", achievementId: 251, description: "Unlock Keeper (1000 greed donation)" },

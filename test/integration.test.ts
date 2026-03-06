@@ -202,4 +202,30 @@ describe("integration: phaseProgress", () => {
     const descriptions = pp.criteria.map(c => c.description);
     expect(descriptions.every(d => !d.includes("Repentance"))).toBe(true);
   });
+
+  it("user save no longer shows Stop Watch as a phase-1 blocker", () => {
+    const result = loadAndAnalyze("user-save.dat");
+    const descriptions = result.phaseProgress!.criteria.map((c) => c.description);
+    expect(descriptions).not.toContain("Donation machine to 999 (Stop Watch)");
+  });
+});
+
+describe("integration: recommendation ordering", () => {
+  it("user save prioritizes Polaroid and Greed setup ahead of challenge cleanup", () => {
+    const result = loadAndAnalyze("user-save.dat");
+    const actionable = result.laneRecommendations.filter(
+      (r) => r.lane !== "guardrail" && !r.isToxicWarning,
+    );
+    const indexOf = (target: string) => actionable.findIndex((r) => r.target === target);
+
+    const polaroid = indexOf("Defeat Isaac 5 times");
+    const greedStart = indexOf("Start Greed Mode — rotate characters to build donation machine");
+    const waka = indexOf("Complete #17 Waka Waka — unlocks Death's Touch");
+
+    expect(polaroid).toBeGreaterThanOrEqual(0);
+    expect(greedStart).toBeGreaterThanOrEqual(0);
+    expect(waka).toBeGreaterThanOrEqual(0);
+    expect(polaroid).toBeLessThan(waka);
+    expect(greedStart).toBeLessThan(waka);
+  });
 });

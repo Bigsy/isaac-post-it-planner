@@ -62,6 +62,11 @@ describe("detectPhase", () => {
     expect(detectPhase(unlocked, EMPTY_STATS, "repentance")).toBe("phase-2-expansion");
   });
 
+  it("Stop Watch is not required to leave phase-1", () => {
+    const unlocked = new Set([79, 4, 34, 78, 57]);
+    expect(detectPhase(unlocked, EMPTY_STATS, "repentance")).toBe("phase-2-expansion");
+  });
+
   it("all phase-1+2 criteria met → phase-3", () => {
     const unlocked = achievementIdsThrough(1);
     expect(detectPhase(unlocked, EMPTY_STATS, "repentance")).toBe("phase-3-repentance");
