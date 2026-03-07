@@ -6,6 +6,7 @@ export interface RouteDef {
   requiredGates: string[];
   greedMode: boolean;
   timed: boolean;
+  timedDescription?: string;
 }
 
 export const ROUTES: RouteDef[] = [
@@ -35,6 +36,7 @@ export const ROUTES: RouteDef[] = [
     requiredGates: ["blue-womb", "void-delirium"],
     greedMode: false,
     timed: true,
+    timedDescription: "Timed route: this planner treats Void as a Hush route, so it assumes the 30:00 Blue Womb cutoff.",
   },
   {
     id: "sheol",
@@ -62,6 +64,7 @@ export const ROUTES: RouteDef[] = [
     requiredGates: ["blue-womb"],
     greedMode: false,
     timed: true,
+    timedDescription: "Timed route: defeat Mom's Heart / It Lives within 30:00 to open Blue Womb.",
   },
   {
     id: "boss-rush",
@@ -71,6 +74,7 @@ export const ROUTES: RouteDef[] = [
     requiredGates: ["mom"],
     greedMode: false,
     timed: true,
+    timedDescription: "Timed route: reach Mom within 20:00 to open Boss Rush.",
   },
   {
     id: "mega-satan-dr",

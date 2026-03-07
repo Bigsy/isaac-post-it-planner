@@ -48,6 +48,24 @@ function hudIcon(statKey: string): string {
   return `<img src="${src}" alt="" class="hud-icon">`;
 }
 
+function linkifyText(text: string, links?: { text: string; url: string }[]): string {
+  if (!links || links.length === 0) return text;
+
+  let html = text;
+  for (const link of links) {
+    html = html.replace(link.text, wikiLink(link.url, link.text));
+  }
+  return html;
+}
+
+function escapeHtmlAttr(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
 function renderDlcBadge(result: AnalysisResult): void {
   const el = document.getElementById("dlc-badge");
   if (!el) return;
@@ -55,73 +73,248 @@ function renderDlcBadge(result: AnalysisResult): void {
   el.className = `dlc-badge dlc-${result.dlcLevel}`;
 }
 
+function renderSummaryMetric(label: string, value: number, total: number): string {
+  const percentage = pct(value, total);
+  return `
+    <div class="summary-metric">
+      <div class="summary-metric-label">${label}</div>
+      <div class="summary-metric-value">${value}/${total}</div>
+      <div class="summary-metric-subtitle">${percentage}% complete</div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${percentage}%"></div></div>
+    </div>
+  `;
+}
+
+function renderQuickStat(label: string, value: string, statKey: string): string {
+  return `
+    <div class="quick-stat">
+      ${hudIcon(statKey)}
+      <div>
+        <span class="quick-stat-label">${label}</span>
+        <span class="quick-stat-value">${value}</span>
+      </div>
+    </div>
+  `;
+}
+
+function renderSummaryGoal(goal: RunGoal): string {
+  if (goal.type === "gate-progress" || goal.type === "phase-criterion") {
+    return goal.description;
+  }
+
+  const bossLink = wikiLink(bossWikiUrl(goal.boss), goal.boss);
+  const itemHtml = goal.itemName
+    ? ` -> ${wikiLink(wikiUrl(goal.itemName), goal.itemName)} ${renderItemBadge(goal.itemQuality, goal.itemName)}`
+    : "";
+  const bundledNote = goal.isBundled ? " (bundled progress)" : "";
+  return `${bossLink} mark${itemHtml}${bundledNote}`;
+}
+
+function renderTimedBadge(timed: boolean, timedDescription?: string): string {
+  if (!timed) return "";
+  const description = timedDescription ?? "Timed route";
+  const escaped = escapeHtmlAttr(description);
+  return `<span class="run-timed" title="${escaped}" aria-label="${escaped}">timed</span>`;
+}
+
+function renderSummaryFocusList(result: AnalysisResult): string {
+  const focusItems = result.tldr && result.tldr.length > 0
+    ? result.tldr.slice(0, 3).map((item) => ({
+        summary: linkifyText(item.summary, item.links),
+        detail: item.detail,
+      }))
+    : result.laneRecommendations
+        .filter((r) => r.lane !== "guardrail" && !r.isToxicWarning)
+        .slice(0, 3)
+        .map((rec) => ({
+          summary: rec.target,
+          detail: rec.whyNow,
+        }));
+
+  if (focusItems.length === 0) {
+    return `<p class="summary-empty">No action shortlist generated for this save.</p>`;
+  }
+
+  return `
+    <ol class="summary-focus-list">
+      ${focusItems.map((item, index) => `
+        <li class="summary-focus-item">
+          <span class="summary-focus-index">${index + 1}</span>
+          <div>
+            <strong>${item.summary}</strong>
+            <span class="summary-focus-detail">${item.detail}</span>
+          </div>
+        </li>
+      `).join("")}
+    </ol>
+  `;
+}
+
+function renderSummary(result: AnalysisResult): void {
+  const container = document.getElementById("summary");
+  if (!container) return;
+
+  const s = result.stats;
+  const phase = result.phaseProgress;
+  const criteriaTotal = phase?.criteria.length ?? 0;
+  const criteriaMet = phase?.criteria.filter((criterion) => criterion.met).length ?? 0;
+  const criteriaPct = criteriaTotal === 0 ? "0.0" : ((criteriaMet / criteriaTotal) * 100).toFixed(1);
+  const nextCriterion = phase?.criteria.find((criterion) => !criterion.met);
+  const nextCriterionHtml = nextCriterion
+    ? nextCriterion.wikiUrl
+      ? wikiLink(nextCriterion.wikiUrl, nextCriterion.description)
+      : nextCriterion.description
+    : "";
+
+  const baseMarks = result.completionGrid.reduce((sum, char) => sum + char.done, 0);
+  const baseTotal = result.completionGrid.reduce((sum, char) => sum + char.total, 0);
+  const taintedMarks = result.taintedCompletionGrid.reduce((sum, char) => sum + char.done, 0);
+  const taintedTotal = result.taintedCompletionGrid.reduce((sum, char) => sum + char.total, 0);
+  const completedChallenges = result.challenges.filter((challenge) => challenge.completed).length;
+  const unlockedCharacters =
+    result.baseCharacters.filter((char) => char.unlocked).length +
+    result.taintedCharacters.filter((char) => char.unlocked).length;
+  const totalCharacters = result.baseCharacters.length + result.taintedCharacters.length;
+  const actionableCount = result.laneRecommendations.filter((r) => r.lane !== "guardrail" && !r.isToxicWarning).length;
+  const toxicWarnings = result.laneRecommendations.filter((r) => r.isToxicWarning).length;
+  const nextPlan = result.runPlans[0];
+
+  const metrics = [
+    renderSummaryMetric("Base Marks", baseMarks, baseTotal),
+    taintedTotal > 0 ? renderSummaryMetric("Tainted Marks", taintedMarks, taintedTotal) : "",
+    renderSummaryMetric("Challenges", completedChallenges, result.challenges.length),
+    renderSummaryMetric("Characters", unlockedCharacters, totalCharacters),
+    renderSummaryMetric("Collectibles", result.collectiblesSeen, result.totalCollectibles),
+    result.bestiaryTotal > 0 ? renderSummaryMetric("Bestiary", result.bestiaryEncountered, result.bestiaryTotal) : "",
+  ].filter(Boolean).join("");
+
+  const summaryCopy = phase
+    ? `You're in ${phase.phaseName}. ${result.totalAchievements - result.unlockedCount} achievements remain, and ${actionableCount} actionable recommendations are queued below.`
+    : `${result.totalAchievements - result.unlockedCount} achievements remain, and ${actionableCount} actionable recommendations are queued below.`;
+
+  const nextPlanHtml = nextPlan
+    ? `
+      <div class="summary-route">
+        <div class="summary-route-line">
+          ${charSpritePath(nextPlan.character) ? `<img src="${charSpritePath(nextPlan.character)!}" alt="" class="run-portrait">` : ""}
+          <span class="summary-route-character">${wikiLink(characterWikiUrl(nextPlan.character), nextPlan.character)}</span>
+          <span class="summary-route-arrow">-&gt;</span>
+          <span class="summary-route-destination">${wikiLink(routeWikiUrl(nextPlan.routeWikiPath), nextPlan.route)}</span>
+          ${renderTimedBadge(nextPlan.timed, nextPlan.timedDescription)}
+        </div>
+        <div class="summary-route-why">${nextPlan.whyThisRun}</div>
+        <div class="summary-route-goal"><strong>Main goal:</strong> ${renderSummaryGoal(nextPlan.primaryGoal)}</div>
+      </div>
+    `
+    : `<p class="summary-empty">No single run has been highlighted yet. Use the shortlist below as your queue.</p>`;
+
+  container.innerHTML = `
+    <div class="summary-shell">
+      <div class="summary-card summary-hero">
+        <div class="summary-kicker">Campaign Snapshot</div>
+        <div class="summary-title">
+          ${result.unlockedCount}
+          <span class="summary-title-total">/ ${result.totalAchievements}</span>
+        </div>
+        <div class="summary-subtitle">achievements unlocked</div>
+        <p class="summary-copy">${summaryCopy}</p>
+        <div class="summary-pill-row">
+          <span class="summary-pill">${DLC_LABELS[result.dlcLevel]}</span>
+          ${phase ? `<span class="summary-pill">${criteriaMet}/${criteriaTotal} phase checks met</span>` : ""}
+          <span class="summary-pill">${completedChallenges}/${result.challenges.length} challenges cleared</span>
+          <span class="summary-pill">${result.missingUnlocks.totalMissing} unlocks remaining</span>
+          ${toxicWarnings > 0 ? `<span class="summary-pill warning">${toxicWarnings} toxic warning${toxicWarnings === 1 ? "" : "s"}</span>` : ""}
+        </div>
+        <div class="summary-progress-label">
+          <span>Overall completion</span>
+          <strong>${pct(result.unlockedCount, result.totalAchievements)}%</strong>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" style="width:${pct(result.unlockedCount, result.totalAchievements)}%"></div></div>
+        <div class="summary-hero-phase">
+          <div class="summary-card-heading">Phase Status</div>
+          ${phase
+            ? `
+              <div class="summary-phase-name">${phase.phaseName}</div>
+              <p class="summary-card-copy">${phase.phaseDescription}</p>
+              <div class="summary-progress-label">
+                <span>Criteria met</span>
+                <strong>${criteriaMet}/${criteriaTotal}</strong>
+              </div>
+              <div class="progress-bar"><div class="progress-fill" style="width:${criteriaPct}%"></div></div>
+              ${nextCriterion
+                ? `<div class="summary-phase-next"><span class="summary-phase-next-label">Next breakpoint</span><strong>${nextCriterionHtml}</strong></div>`
+                : `<div class="summary-phase-next complete"><span class="summary-phase-next-label">Status</span><strong>Current phase criteria complete</strong></div>`}
+            `
+            : `
+              <div class="summary-phase-name">No phase detected</div>
+              <p class="summary-card-copy">Load a save file to see the progression phase and its gating criteria.</p>
+            `}
+        </div>
+      </div>
+
+      <div class="summary-card summary-focus">
+        <div class="summary-card-heading">Focus Now</div>
+        <p class="summary-card-copy">Start with the most useful run, then work down the shortlist.</p>
+        ${nextPlanHtml}
+        ${renderSummaryFocusList(result)}
+      </div>
+    </div>
+
+    <div class="summary-metrics">${metrics}</div>
+
+    <div class="summary-stats">
+      ${renderQuickStat("Mom Kills", s.momKills.toLocaleString(), "momKills")}
+      ${renderQuickStat("Deaths", s.deaths.toLocaleString(), "deaths")}
+      ${renderQuickStat("Win Streak", s.winStreak.toLocaleString(), "winStreak")}
+      ${renderQuickStat("Best Streak", s.bestStreak.toLocaleString(), "bestStreak")}
+      ${renderQuickStat("Normal Donation", s.normalDonationCoins.toLocaleString(), "donationMachine")}
+      ${renderQuickStat("Greed Donation", s.greedDonationCoins.toLocaleString(), "greedDonation")}
+      ${renderQuickStat("Eden Tokens", s.edenTokens.toLocaleString(), "edenTokens")}
+    </div>
+  `;
+}
+
 function renderOverview(result: AnalysisResult): void {
   const s = result.stats;
-  const completedChallenges = result.challenges.filter((c) => c.completed).length;
+  const renderOverviewStat = (label: string, value: string, statKey: string): string => `
+    <div class="overview-stat">
+      <div class="overview-stat-label">${hudIcon(statKey)}<span>${label}</span></div>
+      <div class="overview-stat-value">${value}</div>
+    </div>
+  `;
+
+  const renderOverviewPanel = (
+    title: string,
+    description: string,
+    items: string[],
+  ): string => `
+    <div class="overview-panel">
+      <h3>${title}</h3>
+      <p class="overview-panel-copy">${description}</p>
+      <div class="overview-stat-list">${items.join("")}</div>
+    </div>
+  `;
 
   $("overview").innerHTML = `
-    <div class="stat-grid">
-      <div class="stat-card primary">
-        <div class="stat-value stat-value-hero">${hudIcon("achievements")}${result.unlockedCount}/${result.totalAchievements}</div>
-        <div class="stat-label">Achievements (${pct(result.unlockedCount, result.totalAchievements)}%)</div>
-        <div class="progress-bar"><div class="progress-fill" style="width:${pct(result.unlockedCount, result.totalAchievements)}%"></div></div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value">${hudIcon("collectibles")}${result.collectiblesSeen}/${result.totalCollectibles}</div>
-        <div class="stat-label">Collectibles (${pct(result.collectiblesSeen, result.totalCollectibles)}%)</div>
-      </div>${result.bestiaryTotal > 0 ? `
-      <div class="stat-card">
-        <div class="stat-value">${hudIcon("bestiary")}${result.bestiaryEncountered}/${result.bestiaryTotal}</div>
-        <div class="stat-label">Bestiary (${pct(result.bestiaryEncountered, result.bestiaryTotal)}%)</div>
-      </div>` : ""}
-      <div class="stat-card">
-        <div class="stat-value">${hudIcon("momKills")}${s.momKills}</div>
-        <div class="stat-label">Mom Kills</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value">${hudIcon("deaths")}${s.deaths}</div>
-        <div class="stat-label">Deaths</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value">${hudIcon("challenges")}${completedChallenges}/${result.challenges.length}</div>
-        <div class="stat-label">Challenges</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value">${hudIcon("winStreak")}${s.winStreak}</div>
-        <div class="stat-label">Win Streak</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value">${hudIcon("bestStreak")}${s.bestStreak}</div>
-        <div class="stat-label">Best Streak</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value">${hudIcon("edenTokens")}${s.edenTokens}</div>
-        <div class="stat-label">Eden Tokens</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value">${hudIcon("rocksDestroyed")}${s.rocksDestroyed.toLocaleString()}</div>
-        <div class="stat-label">Rocks Destroyed</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value">${hudIcon("tintedRocks")}${s.tintedRocksDestroyed}</div>
-        <div class="stat-label">Tinted Rocks</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value">${hudIcon("poopDestroyed")}${s.poopDestroyed.toLocaleString()}</div>
-        <div class="stat-label">Poop Destroyed</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value">${hudIcon("shopkeepers")}${s.shopkeeperKills}</div>
-        <div class="stat-label">Shopkeepers Killed</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value">${hudIcon("greedDonation")}${s.greedDonationCoins}</div>
-        <div class="stat-label">Greed Donation</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value">${hudIcon("donationMachine")}${s.normalDonationCoins}</div>
-        <div class="stat-label">Normal Donation</div>
-      </div>
+    <div class="overview-panels">
+      ${renderOverviewPanel("Run History", "High-signal counters that show how the save has been progressing overall.", [
+        renderOverviewStat("Mom Kills", s.momKills.toLocaleString(), "momKills"),
+        renderOverviewStat("Mom's Heart Kills", s.momsHeartKills.toLocaleString(), "momKills"),
+        renderOverviewStat("Deaths", s.deaths.toLocaleString(), "deaths"),
+        renderOverviewStat("Win Streak", s.winStreak.toLocaleString(), "winStreak"),
+        renderOverviewStat("Best Streak", s.bestStreak.toLocaleString(), "bestStreak"),
+      ])}
+      ${renderOverviewPanel("Economy", "Run-level resources and donation progress that affect unlock pace.", [
+        renderOverviewStat("Eden Tokens", s.edenTokens.toLocaleString(), "edenTokens"),
+        renderOverviewStat("Normal Donation", s.normalDonationCoins.toLocaleString(), "donationMachine"),
+        renderOverviewStat("Greed Donation", s.greedDonationCoins.toLocaleString(), "greedDonation"),
+      ])}
+      ${renderOverviewPanel("Environment", "Low-priority world counters that are useful as supporting context.", [
+        renderOverviewStat("Rocks Destroyed", s.rocksDestroyed.toLocaleString(), "rocksDestroyed"),
+        renderOverviewStat("Tinted Rocks", s.tintedRocksDestroyed.toLocaleString(), "tintedRocks"),
+        renderOverviewStat("Poop Destroyed", s.poopDestroyed.toLocaleString(), "poopDestroyed"),
+        renderOverviewStat("Shopkeepers Killed", s.shopkeeperKills.toLocaleString(), "shopkeepers"),
+      ])}
     </div>
   `;
 }
@@ -295,9 +488,18 @@ function renderItemBadge(quality?: ItemQuality, name?: string): string {
   return `<span class="item-badge ${quality}"${title}>${quality}</span>`;
 }
 
+function shouldCollapseRecommendation(rec: LaneRecommendation): boolean {
+  return rec.blockedBy.length > 0 || rec.whyNow.length > 120;
+}
+
+function shouldCollapseRunPlan(plan: RunPlan): boolean {
+  return plan.goals.length > 1 || plan.whyThisRun.length > 110;
+}
+
 function renderRecCard(r: LaneRecommendation): string {
   const laneBadge = `<span class="badge ${LANE_BADGE_CLASS[r.lane]}">${LANE_LABELS[r.lane]}</span>`;
   const itemBadge = renderItemBadge(r.itemQuality, r.itemName);
+  const collapsed = shouldCollapseRecommendation(r);
 
   // Link entities in blocked-by descriptions
   const blockedHtml =
@@ -348,11 +550,25 @@ function renderRecCard(r: LaneRecommendation): string {
     targetHtml = targetHtml.replace(r.itemName, wikiLink(wikiUrl(r.itemName), r.itemName));
   }
 
+  const reasonPreview = `<div class="rec-reason rec-reason-preview">${r.whyNow}</div>`;
+  const reasonFull = `<div class="rec-reason rec-reason-full">${r.whyNow}</div>`;
+  const detailsHtml = collapsed
+    ? `
+      <details class="card-details rec-details">
+        <summary class="card-details-summary">More detail</summary>
+        <div class="card-details-body">
+          ${reasonFull}
+          ${blockedHtml}
+        </div>
+      </details>
+    `
+    : "";
+
   return `
     <div class="rec-card lane-${r.lane}${toxicClass}">
       <div class="rec-header">${laneBadge}${itemBadge} ${targetHtml}${achievementLink}</div>
-      <div class="rec-reason">${r.whyNow}</div>
-      ${blockedHtml}
+      ${collapsed ? reasonPreview : reasonFull}
+      ${collapsed ? detailsHtml : blockedHtml}
     </div>`;
 }
 
@@ -384,20 +600,45 @@ function renderRunPlanCard(plan: RunPlan, currentPhase?: ProgressionPhase, phase
   const portraitHtml = portrait ? `<img src="${portrait}" alt="" class="run-portrait">` : "";
   const characterLink = wikiLink(characterWikiUrl(plan.character), plan.character);
   const routeLink = wikiLink(routeWikiUrl(plan.routeWikiPath), plan.route);
-  const timedBadge = plan.timed ? `<span class="run-timed">timed</span>` : "";
+  const timedBadge = renderTimedBadge(plan.timed, plan.timedDescription);
   const phaseBadge = currentPhase && plan.phase === currentPhase && phaseName
     ? `<span class="badge high">${phaseName}</span>`
     : "";
-  const goals: string[] = [];
+  const collapsed = shouldCollapseRunPlan(plan);
+  const secondaryGoals: string[] = [];
+  let angelRequirementAdded =
+    plan.primaryGoal.description.includes("Angel Room") ||
+    plan.primaryGoal.description.includes("Key Piece");
+
   for (const goal of plan.goals) {
-    goals.push(renderRunGoal(goal, goal === plan.primaryGoal));
-  }
-  if (plan.routeId === "mega-satan-dr" || plan.routeId === "mega-satan-ch") {
-    const alreadyMentioned = goals.some(g => g.includes("Key Piece") || g.includes("Angel Room"));
-    if (!alreadyMentioned) {
-      goals.push(`<div class="run-goal note">Requires Angel Room key pieces in-run</div>`);
+    if (goal === plan.primaryGoal) continue;
+    secondaryGoals.push(renderRunGoal(goal, false));
+    if (goal.type !== "completion-mark" && goal.description.includes("Angel Room")) {
+      angelRequirementAdded = true;
     }
   }
+  if ((plan.routeId === "mega-satan-dr" || plan.routeId === "mega-satan-ch") && !angelRequirementAdded) {
+    secondaryGoals.push(`<div class="run-goal note">Requires Angel Room key pieces in-run</div>`);
+  }
+
+  const primaryGoalHtml = renderRunGoal(plan.primaryGoal, true);
+  const whyPreview = `<div class="run-why run-why-preview">${plan.whyThisRun}</div>`;
+  const whyFull = `<div class="run-why run-why-full">${plan.whyThisRun}</div>`;
+  const primaryGoalsBlock = `<div class="run-goals run-goals-primary">${primaryGoalHtml}</div>`;
+  const secondaryGoalsBlock = secondaryGoals.length > 0
+    ? `<div class="run-goals run-goals-secondary">${secondaryGoals.join("")}</div>`
+    : "";
+  const detailsHtml = collapsed
+    ? `
+      <details class="card-details run-plan-details">
+        <summary class="card-details-summary">Show full run breakdown</summary>
+        <div class="card-details-body">
+          ${whyFull}
+          ${secondaryGoalsBlock}
+        </div>
+      </details>
+    `
+    : "";
 
   return `
     <div class="run-plan">
@@ -408,8 +649,9 @@ function renderRunPlanCard(plan: RunPlan, currentPhase?: ProgressionPhase, phase
         ${phaseBadge}
         ${timedBadge}
       </div>
-      <div class="run-why">${plan.whyThisRun}</div>
-      <div class="run-goals">${goals.join("")}</div>
+      ${collapsed ? whyPreview : whyFull}
+      ${collapsed ? primaryGoalsBlock : `<div class="run-goals">${[primaryGoalHtml, ...secondaryGoals].join("")}</div>`}
+      ${detailsHtml}
     </div>
   `;
 }
@@ -424,12 +666,7 @@ function renderTldr(tldr: TldrItem[] | undefined): void {
   }
 
   const items = tldr.map((item, i) => {
-    let summaryText = item.summary;
-    if (item.links) {
-      for (const link of item.links) {
-        summaryText = summaryText.replace(link.text, wikiLink(link.url, link.text));
-      }
-    }
+    const summaryText = linkifyText(item.summary, item.links);
     return `<li class="tldr-item"><span class="tldr-num">${i + 1}.</span> <strong>${summaryText}</strong><span class="tldr-detail">${item.detail}</span></li>`;
   }).join("");
 
@@ -501,33 +738,33 @@ function renderPathRecommendations(
   // Critical Path: show run plans first, then current-phase gate recs.
   let criticalHtml = "";
   if (runPlans.length > 0) {
-    criticalHtml += `<div class="path-group"><div class="path-group-header">Suggested Runs</div>`;
-    for (const plan of runPlans.slice(0, 5)) {
+    criticalHtml += `<div class="path-group path-group-runs"><div class="path-group-header">Suggested Runs</div><div class="path-group-cards">`;
+    for (const plan of runPlans.slice(0, 3)) {
       criticalHtml += renderRunPlanCard(plan, currentPhase, phaseName);
     }
-    criticalHtml += `</div>`;
+    criticalHtml += `</div></div>`;
   }
   if (critical.length > 0) {
     const heading = runPlans.length > 0
       ? phaseName ? `Current-Phase Gates: ${phaseName}` : "Current-Phase Gates"
       : phaseName ? `Critical Path: ${phaseName}` : "Critical Path";
-    criticalHtml += `<div class="path-group"><div class="path-group-header">${heading}</div>`;
+    criticalHtml += `<div class="path-group path-group-critical"><div class="path-group-header">${heading}</div><div class="path-group-cards">`;
     for (const rec of critical.slice(0, runPlans.length > 0 ? 4 : 8)) {
       criticalHtml += renderRecCard(rec);
     }
-    criticalHtml += `</div>`;
+    criticalHtml += `</div></div>`;
   }
   criticalEl.innerHTML = criticalHtml;
 
-  // Secondary: top 10
+  // Secondary: top 6
   let secondaryHtml = "";
-  const compactSecondary = selectSecondaryRecommendations(secondary, 10);
+  const compactSecondary = selectSecondaryRecommendations(secondary, 6);
   if (compactSecondary.length > 0) {
-    secondaryHtml += `<div class="path-group"><div class="path-group-header">Also Worth Doing</div>`;
+    secondaryHtml += `<div class="path-group path-group-secondary path-group-grid"><div class="path-group-header">Also Worth Doing</div><div class="path-group-cards">`;
     for (const r of compactSecondary) {
       secondaryHtml += renderRecCard(r);
     }
-    secondaryHtml += `</div>`;
+    secondaryHtml += `</div></div>`;
   }
 
   // Guardrails: collapsed below actionable recs
@@ -805,6 +1042,7 @@ export function renderResults(result: AnalysisResult): void {
   $("results").classList.remove("hidden");
 
   renderDlcBadge(result);
+  renderSummary(result);
   renderOverview(result);
   renderPathRecommendations(
     result.runPlans,

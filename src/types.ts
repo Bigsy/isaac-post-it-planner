@@ -179,6 +179,7 @@ export interface RunPlan {
   routeId: string;
   routeWikiPath: string;
   whyThisRun: string;
+  timedDescription?: string;
   goals: RunGoal[];
   primaryGoal: RunGoal;
   scoreBreakdown: {

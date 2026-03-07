@@ -33,6 +33,7 @@ describe("integration: full pipeline with sample save", () => {
     expect(result.runPlans).toBeDefined();
     expect(result.runPlans.length).toBeGreaterThan(0);
     expect(result.runPlans.every((p) => p.whyThisRun.trim().length > 0)).toBe(true);
+    expect(result.runPlans.every((p) => !p.timed || !!p.timedDescription?.trim())).toBe(true);
 
     // Lane recommendations span multiple lanes
     const lanes = new Set(result.laneRecommendations.map((r) => r.lane));

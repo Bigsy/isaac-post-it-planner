@@ -24,7 +24,7 @@
     <section id="upload-section">
       <div id="drop-zone">
         <div class="drop-icon">&#128193;</div>
-        <p>Drag &amp; drop your <code>rep+persistentgamedata1.dat</code> here</p>
+        <p>Drag &amp; drop your Isaac save <code>.dat</code> file here</p>
         <p class="hint">or click to browse</p>
         <input type="file" id="file-input" accept=".dat" hidden>
       </div>
@@ -35,27 +35,31 @@
 
     <div id="results" class="hidden">
       <nav class="results-nav" aria-label="Results Sections">
-        <a href="#overview-section">Overview</a>
+        <a href="#summary-section">Summary</a>
         <a href="#phase-section">Phase</a>
         <a href="#path-section">What Next</a>
         <a href="#completion-dashboard-section">Completion</a>
+        <a href="#overview-section">Stats</a>
         <a href="#challenges-section">Challenges</a>
         <a href="#characters-section">Characters</a>
         <a href="#missing-unlocks-section">Missing Unlocks</a>
       </nav>
 
-      <section id="overview-section">
-        <h2>Overview</h2>
-        <div id="overview"></div>
+      <section id="summary-section">
+        <h2>Summary</h2>
+        <p class="section-intro">One screen for overall progress, current phase, and the best next move.</p>
+        <div id="summary"></div>
       </section>
 
       <section id="phase-section">
-        <h2>Your Progression Phase</h2>
+        <h2>Phase Details</h2>
+        <p class="section-intro">Why the planner thinks this is your current progression phase.</p>
         <div id="phase-progress"></div>
       </section>
 
       <section id="path-section">
         <h2>What Next</h2>
+        <p class="section-intro">Ordered from the highest-leverage runs and gates to secondary side progress.</p>
         <div id="tldr"></div>
         <div id="warnings"></div>
         <div id="critical-path"></div>
@@ -64,12 +68,20 @@
 
       <section id="boss-milestones-section" class="hidden">
         <h2>Boss Kill Milestones</h2>
+        <p class="section-intro">Longer-term milestone unlocks that depend on repeated boss clears.</p>
         <div id="boss-milestones"></div>
       </section>
 
       <section id="completion-dashboard-section">
-        <h2>Completion Dashboard</h2>
+        <h2>Completion Breakdown</h2>
+        <p class="section-intro">Macro progress across marks, challenges, characters, and collection tracking.</p>
         <div id="completion-dashboard"></div>
+      </section>
+
+      <section id="overview-section">
+        <h2>Detailed Stats</h2>
+        <p class="section-intro">Supporting counters and economy stats that matter less often than the action plan above.</p>
+        <div id="overview"></div>
       </section>
 
       <section id="completion-grid-section">

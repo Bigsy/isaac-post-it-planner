@@ -1,6 +1,7 @@
 import { parseSaveFile } from "./parser";
 import { analyze } from "./analyzer";
 import { renderResults, showError, clearError } from "./ui";
+import { detectSavePathPlatform, getOrderedSavePathGroups, type SavePathPlatform } from "./save-paths";
 
 function handleFile(file: File): void {
   clearError();
@@ -40,37 +41,77 @@ function copyToClipboard(text: string): Promise<void> {
   return Promise.resolve();
 }
 
+function escapeHtmlAttr(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function pickerTip(platform: SavePathPlatform): string {
+  if (platform === "macos") {
+    return "Tip: In the file picker, press <kbd>⌘</kbd><kbd>Shift</kbd><kbd>G</kbd> and paste a folder path. Or open it in Finder and drag the save file here.";
+  }
+  if (platform === "windows") {
+    return "Tip: Paste a folder path into the file picker address bar. Or open it in Explorer and drag the save file here.";
+  }
+  if (platform === "linux") {
+    return "Tip: Paste a folder path into your file picker if it supports location entry, or open it in your file manager and drag the save file here.";
+  }
+  return "Tip: Open one of these folders in your file manager and drag the save file here, or paste the path into the file picker if supported.";
+}
+
+function steamCloudTip(): string {
+  return "For Steam installs, <code>userdata/&lt;steam-id&gt;/250900/remote/</code> is usually the live save folder. Version-named folders are local copies or cloud-off restore locations.";
+}
+
 function renderPathHelper(): void {
   const container = document.getElementById("path-helper");
   if (!container) return;
 
-  const isMac = navigator.platform.startsWith("Mac");
+  const nav = navigator as Navigator & { userAgentData?: { platform?: string } };
+  const platform = detectSavePathPlatform(nav.userAgentData?.platform ?? navigator.platform, navigator.userAgent);
+  const groups = getOrderedSavePathGroups(platform);
 
-  // Mac: all DLCs share one folder. Windows: separate folders per DLC.
-  const paths = isMac
-    ? ["~/Library/Application Support/Binding of Isaac Afterbirth+/"]
-    : [
-        "C:\\Users\\{you}\\Documents\\My Games\\Binding of Isaac Repentance\\",
-        "C:\\Users\\{you}\\Documents\\My Games\\Binding of Isaac Afterbirth+\\",
-      ];
+  const groupHtml = groups
+    .map((group) => {
+      const rows = group.entries
+        .map((entry) => {
+          const escapedPath = escapeHtmlAttr(entry.path);
+          return `<div class="path-row">
+            <div class="path-row-main">
+              <span class="path-row-label">${entry.version}</span>
+              <code title="${escapedPath}">${entry.path}</code>
+            </div>
+            <button class="path-copy-btn" data-path="${escapedPath}">Copy</button>
+          </div>`;
+        })
+        .join("");
 
-  const rows = paths
-    .map((path) => {
-      return `<div class="path-row">
-        <code title="${path}">${path}</code>
-        <button class="path-copy-btn" data-path="${path}">Copy</button>
-      </div>`;
+      const isCurrent = group.id === platform;
+      const shouldOpen = platform === "unknown" || isCurrent;
+
+      return `<details class="path-os-group${isCurrent ? " current" : ""}"${shouldOpen ? " open" : ""}>
+        <summary class="path-os-header">
+          <div class="path-os-header-main">
+            <div class="path-os-title">${group.label}</div>
+            ${isCurrent ? '<span class="path-os-badge">Current OS</span>' : ""}
+          </div>
+          <span class="path-os-toggle" aria-hidden="true"></span>
+        </summary>
+        <div class="path-os-body">
+          ${rows}
+        </div>
+      </details>`;
     })
     .join("");
 
-  const tip = isMac
-    ? `Tip: In the file picker, press <kbd>⌘</kbd><kbd>Shift</kbd><kbd>G</kbd> and paste. Or open the folder in Finder and drag the .dat file here.`
-    : `Tip: Paste the path into the file picker address bar. Or open the folder in Explorer and drag the file here.`;
-
   container.innerHTML = `
-    <p class="path-label">Save file location${paths.length > 1 ? "s" : ""}:</p>
-    ${rows}
-    <p class="path-tip">${tip}</p>
+    <p class="path-label">Common save folders:</p>
+    <div class="path-groups">${groupHtml}</div>
+    <p class="path-tip">${pickerTip(platform)}</p>
+    <p class="path-tip path-tip-secondary">${steamCloudTip()}</p>
   `;
 
   container.addEventListener("click", (e) => {

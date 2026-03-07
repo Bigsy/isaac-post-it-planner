@@ -142,6 +142,31 @@ describe("buildRunPlans", () => {
     expect(runPlans[0].routeId).not.toBe("blue-womb");
   });
 
+  it("copies timed route descriptions into generated plans", () => {
+    const baseGrid = [
+      baseCharacter("Isaac", [
+        { boss: "Mom's Heart", done: false, achievementId: 10 },
+        { boss: "Hush", done: false, achievementId: 12 },
+      ]),
+    ];
+
+    const runPlans = buildRunPlans(
+      baseGrid,
+      [],
+      new Set<number>([57, 58, 78, 234]),
+      new Set<string>(["Isaac"]),
+      PHASE_PROGRESS,
+      PROGRESSION_GATES,
+      { ...EMPTY_STATS, momsHeartKills: 11 },
+      "repentance",
+      637,
+    );
+
+    expect(runPlans[0].timed).toBe(true);
+    expect(runPlans[0].routeId).toBe("blue-womb");
+    expect(runPlans[0].timedDescription).toContain("30:00");
+  });
+
   it("suppresses inaccessible branch routes before sheol-cathedral gate", () => {
     const baseGrid = [
       baseCharacter("Isaac", [

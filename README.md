@@ -1,12 +1,12 @@
 # Isaac Post-it Planner
 
-A client-side web app that reads your Binding of Isaac: Repentance save file and tells you what to focus on next. Existing tools show what you *have* — this one tells you what to *do*.
+A client-side web app that reads your Binding of Isaac save file and tells you what to focus on next. Existing tools show what you *have* — this one tells you what to *do*.
 
 Drop your save file in the browser. Nothing is uploaded; everything runs locally.
 
 ## What it shows
 
-- **DLC detection** — auto-detects Rebirth, Afterbirth, or Repentance from save header; filters all content to your DLC level
+- **DLC detection** — auto-detects supported save versions from Rebirth through Repentance+ and filters all content to your DLC level
 - **Overview** — achievement %, collectibles seen, bestiary progress, deaths, win streaks, Eden tokens, donation counters, and other key stats
 - **What Next** — lane-based recommendation engine that scores and ranks what to tackle next across six lanes:
   - Progression gates (Mom kills, boss unlocks, etc.)
@@ -34,12 +34,16 @@ make build
 open dist/index.html
 ```
 
-Then drag your `rep+persistentgamedata1.dat` onto the page.
+Then drag your Isaac save `.dat` file onto the page.
 
-Save file location:
-- **Windows:** `C:\Users\{you}\Documents\My Games\Binding of Isaac Repentance\`
-- **macOS:** `~/Library/Application Support/Binding of Isaac Repentance/`
-- **Linux:** `~/.local/share/binding of isaac repentance/`
+Common save folders:
+- **Windows live Steam save:** `C:\Program Files (x86)\Steam\userdata\{steam-id}\250900\remote\`
+- **macOS live Steam save:** `~/Library/Application Support/Steam/userdata/{steam-id}/250900/remote/`
+- **Linux live Steam save:** `~/.local/share/Steam/userdata/{steam-id}/250900/remote/` or `~/.steam/steam/userdata/{steam-id}/250900/remote/`
+- **Windows local/cloud-off folders:** `C:\Users\{you}\Documents\My Games\Binding of Isaac Rebirth\`, `C:\Users\{you}\Documents\My Games\Binding of Isaac Afterbirth\`, `C:\Users\{you}\Documents\My Games\Binding of Isaac Afterbirth+\`, `C:\Users\{you}\Documents\My Games\Binding of Isaac Repentance\`
+- **macOS local folders:** `~/Library/Application Support/Binding of Isaac Rebirth/`, `~/Library/Application Support/Binding of Isaac Afterbirth/`, `~/Library/Application Support/Binding of Isaac Afterbirth+/`
+
+For Steam installs, `userdata/<steam-id>/250900/remote/` is usually the live save folder. The version-named folders are mainly useful for local copies, backups, or cloud-off restore flows.
 
 ## Development
 
