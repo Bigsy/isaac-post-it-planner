@@ -727,11 +727,11 @@ function renderPathRecommendations(
   // Warnings: toxic panel only (toxic warnings are urgent — keep at top)
   let warningsHtml = "";
   if (warnings.length > 0) {
-    warningsHtml += `<div class="toxic-panel"><div class="toxic-panel-header">Toxic Item Warnings</div>`;
+    warningsHtml += `<div class="path-group path-group-warning"><div class="path-group-header">Toxic Item Warnings</div><div class="path-group-cards">`;
     for (const r of warnings) {
       warningsHtml += renderRecCard(r);
     }
-    warningsHtml += `</div>`;
+    warningsHtml += `</div></div>`;
   }
   warningsEl.innerHTML = warningsHtml;
 

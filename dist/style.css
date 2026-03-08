@@ -1772,19 +1772,6 @@ footer {
 
 /* Toxic warning */
 .rec-card.toxic-warning { border-left-color: var(--dried-blood); }
-.toxic-panel {
-  background: color-mix(in srgb, var(--dried-blood) 10%, transparent);
-  border: 1px solid var(--dried-blood);
-  border-radius: 8px;
-  padding: 0.75rem 1rem;
-  margin-bottom: 1.25rem;
-}
-.toxic-panel-header {
-  color: var(--wound);
-  font-weight: 700;
-  font-size: 0.95rem;
-  margin-bottom: 0.5rem;
-}
 
 /* Path containers */
 .path-group {
@@ -1809,6 +1796,21 @@ footer {
   margin-top: 0.3rem;
   height: 1px;
   background: linear-gradient(90deg, var(--brass), rgba(85,85,104,0.3) 40%, transparent 80%);
+}
+.path-group-warning {
+  padding: 0.8rem 1rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--dried-blood) 75%, transparent);
+  border-radius: var(--radius-md);
+  background:
+    linear-gradient(180deg, rgba(122, 27, 27, 0.08), rgba(122, 27, 27, 0.02)),
+    linear-gradient(168deg, rgba(26,26,46,0.98), rgba(20,20,32,0.98));
+}
+.path-group-warning .path-group-header {
+  color: var(--wound);
+  margin-bottom: 0.6rem;
+}
+.path-group-warning .path-group-header::after {
+  background: linear-gradient(90deg, var(--dried-blood), rgba(122,27,27,0.3) 40%, transparent 80%);
 }
 
 @media (min-width: 1100px) {
