@@ -1,19 +1,16 @@
 import type {
+  ActionItem,
   AnalysisResult,
-  CharacterProgress,
-  TaintedCharacterProgress,
-  ChallengeInfo,
-  LaneRecommendation,
+  BossKillMilestoneGroupStatus,
   BestiaryEntry,
-  Lane,
+  CharacterProgress,
+  ChallengeInfo,
   MissingUnlocksResult,
   PhaseProgress,
   RunGoal,
-  RunPlan,
-  BossKillMilestoneGroupStatus,
-  TldrItem,
+  SuppressedItem,
+  TaintedCharacterProgress,
 } from "./types";
-import type { ProgressionPhase } from "./data/phases";
 import type { ItemQuality } from "./data/item-values";
 import { BOSS_SHORT_NAME } from "./data/characters";
 import { TAINTED_BOSS_SHORT_NAMES } from "./data/tainted-marks";
@@ -97,19 +94,6 @@ function renderQuickStat(label: string, value: string, statKey: string): string 
   `;
 }
 
-function renderSummaryGoal(goal: RunGoal): string {
-  if (goal.type === "gate-progress" || goal.type === "phase-criterion") {
-    return goal.description;
-  }
-
-  const bossLink = wikiLink(bossWikiUrl(goal.boss), goal.boss);
-  const itemHtml = goal.itemName
-    ? ` -> ${wikiLink(wikiUrl(goal.itemName), goal.itemName)} ${renderItemBadge(goal.itemQuality, goal.itemName)}`
-    : "";
-  const bundledNote = goal.isBundled ? " (bundled progress)" : "";
-  return `${bossLink} mark${itemHtml}${bundledNote}`;
-}
-
 function renderTimedBadge(timed: boolean, timedDescription?: string): string {
   if (!timed) return "";
   const description = timedDescription ?? "Timed route";
@@ -117,31 +101,54 @@ function renderTimedBadge(timed: boolean, timedDescription?: string): string {
   return `<span class="run-timed" title="${escaped}" aria-label="${escaped}">timed</span>`;
 }
 
-function renderSummaryFocusList(result: AnalysisResult): string {
-  const focusItems = result.tldr && result.tldr.length > 0
-    ? result.tldr.slice(0, 3).map((item) => ({
-        summary: linkifyText(item.summary, item.links),
-        detail: item.detail,
-      }))
-    : result.laneRecommendations
-        .filter((r) => r.lane !== "guardrail" && !r.isToxicWarning)
-        .slice(0, 3)
-        .map((rec) => ({
-          summary: rec.target,
-          detail: rec.whyNow,
-        }));
+function actionAnchorId(item: ActionItem): string {
+  return `action-${item.id}`;
+}
 
-  if (focusItems.length === 0) {
-    return `<p class="summary-empty">No action shortlist generated for this save.</p>`;
+function renderSummaryFeaturedAction(item: ActionItem): string {
+  if (item.category === "run" && item.character && item.route) {
+    const portrait = charSpritePath(item.character);
+    return `
+      <a href="#${actionAnchorId(item)}" class="summary-feature-link">
+        <div class="summary-route">
+          <div class="summary-route-line">
+            ${portrait ? `<img src="${portrait}" alt="" class="run-portrait">` : ""}
+            <span class="summary-route-character">${wikiLink(characterWikiUrl(item.character), item.character)}</span>
+            <span class="summary-route-arrow">-&gt;</span>
+            <span class="summary-route-destination">${item.routeWikiPath ? wikiLink(routeWikiUrl(item.routeWikiPath), item.route) : item.route}</span>
+            ${renderTimedBadge(!!item.timed, item.timedDescription)}
+          </div>
+          <div class="summary-route-why">${item.headline}</div>
+          <div class="summary-route-goal">${item.whyFirst ?? item.detail}</div>
+        </div>
+      </a>
+    `;
+  }
+
+  return `
+    <a href="#${actionAnchorId(item)}" class="summary-feature-link">
+      <div class="summary-route">
+        <div class="summary-route-line">
+          <span class="summary-route-character">${item.headline}</span>
+        </div>
+        <div class="summary-route-why">${item.whyFirst ?? item.detail}</div>
+      </div>
+    </a>
+  `;
+}
+
+function renderSummaryFollowUps(items: ActionItem[]): string {
+  if (items.length === 0) {
+    return `<p class="summary-empty">No additional strong alternatives right now.</p>`;
   }
 
   return `
     <ol class="summary-focus-list">
-      ${focusItems.map((item, index) => `
+      ${items.map((item, index) => `
         <li class="summary-focus-item">
-          <span class="summary-focus-index">${index + 1}</span>
+          <span class="summary-focus-index">${index + 2}</span>
           <div>
-            <strong>${item.summary}</strong>
+            <a href="#${actionAnchorId(item)}"><strong>${item.headline}</strong></a>
             <span class="summary-focus-detail">${item.detail}</span>
           </div>
         </li>
@@ -165,6 +172,19 @@ function renderSummary(result: AnalysisResult): void {
       ? wikiLink(nextCriterion.wikiUrl, nextCriterion.description)
       : nextCriterion.description
     : "";
+  const phaseCriteriaHtml = phase
+    ? `
+      <ul class="phase-criteria summary-phase-criteria">
+        ${phase.criteria.map((criterion) => {
+          const description = criterion.wikiUrl
+            ? wikiLink(criterion.wikiUrl, criterion.description)
+            : criterion.description;
+          const howTo = criterion.howTo ? `<span class="phase-how-to">${criterion.howTo}</span>` : "";
+          return `<li class="phase-criterion ${criterion.met ? "met" : "unmet"}">${description}${howTo}</li>`;
+        }).join("")}
+      </ul>
+    `
+    : "";
 
   const baseMarks = result.completionGrid.reduce((sum, char) => sum + char.done, 0);
   const baseTotal = result.completionGrid.reduce((sum, char) => sum + char.total, 0);
@@ -175,9 +195,10 @@ function renderSummary(result: AnalysisResult): void {
     result.baseCharacters.filter((char) => char.unlocked).length +
     result.taintedCharacters.filter((char) => char.unlocked).length;
   const totalCharacters = result.baseCharacters.length + result.taintedCharacters.length;
-  const actionableCount = result.laneRecommendations.filter((r) => r.lane !== "guardrail" && !r.isToxicWarning).length;
-  const toxicWarnings = result.laneRecommendations.filter((r) => r.isToxicWarning).length;
-  const nextPlan = result.runPlans[0];
+  const actionableItems = result.actionItems.filter((item) => item.category !== "warning");
+  const topAction = actionableItems[0];
+  const followUps = actionableItems.slice(1, 3);
+  const toxicWarnings = result.actionItems.filter((item) => item.isToxicWarning).length;
 
   const metrics = [
     renderSummaryMetric("Base Marks", baseMarks, baseTotal),
@@ -189,24 +210,8 @@ function renderSummary(result: AnalysisResult): void {
   ].filter(Boolean).join("");
 
   const summaryCopy = phase
-    ? `You're in ${phase.phaseName}. ${result.totalAchievements - result.unlockedCount} achievements remain, and ${actionableCount} actionable recommendations are queued below.`
-    : `${result.totalAchievements - result.unlockedCount} achievements remain, and ${actionableCount} actionable recommendations are queued below.`;
-
-  const nextPlanHtml = nextPlan
-    ? `
-      <div class="summary-route">
-        <div class="summary-route-line">
-          ${charSpritePath(nextPlan.character) ? `<img src="${charSpritePath(nextPlan.character)!}" alt="" class="run-portrait">` : ""}
-          <span class="summary-route-character">${wikiLink(characterWikiUrl(nextPlan.character), nextPlan.character)}</span>
-          <span class="summary-route-arrow">-&gt;</span>
-          <span class="summary-route-destination">${wikiLink(routeWikiUrl(nextPlan.routeWikiPath), nextPlan.route)}</span>
-          ${renderTimedBadge(nextPlan.timed, nextPlan.timedDescription)}
-        </div>
-        <div class="summary-route-why">${nextPlan.whyThisRun}</div>
-        <div class="summary-route-goal"><strong>Main goal:</strong> ${renderSummaryGoal(nextPlan.primaryGoal)}</div>
-      </div>
-    `
-    : `<p class="summary-empty">No single run has been highlighted yet. Use the shortlist below as your queue.</p>`;
+    ? `You're in ${phase.phaseName}. ${result.totalAchievements - result.unlockedCount} achievements remain. The sections below split out your best next play, strong follow-ups, and longer-term cleanup.`
+    : `${result.totalAchievements - result.unlockedCount} achievements remain. The sections below split out your best next play, strong follow-ups, and longer-term cleanup.`;
 
   container.innerHTML = `
     <div class="summary-shell">
@@ -244,6 +249,7 @@ function renderSummary(result: AnalysisResult): void {
               ${nextCriterion
                 ? `<div class="summary-phase-next"><span class="summary-phase-next-label">Next breakpoint</span><strong>${nextCriterionHtml}</strong></div>`
                 : `<div class="summary-phase-next complete"><span class="summary-phase-next-label">Status</span><strong>Current phase criteria complete</strong></div>`}
+              ${phaseCriteriaHtml}
             `
             : `
               <div class="summary-phase-name">No phase detected</div>
@@ -253,10 +259,11 @@ function renderSummary(result: AnalysisResult): void {
       </div>
 
       <div class="summary-card summary-focus">
-        <div class="summary-card-heading">Focus Now</div>
-        <p class="summary-card-copy">Start with the most useful run, then work down the shortlist.</p>
-        ${nextPlanHtml}
-        ${renderSummaryFocusList(result)}
+        <div class="summary-card-heading">Featured Pick</div>
+        <p class="summary-card-copy">The summary points at the top priority, then links you down into the full Play Next queue without duplicating cards.</p>
+        ${topAction ? renderSummaryFeaturedAction(topAction) : `<p class="summary-empty">No action shortlist generated for this save.</p>`}
+        <div class="summary-card-heading summary-card-subheading">Rotate Into</div>
+        ${renderSummaryFollowUps(followUps)}
       </div>
     </div>
 
@@ -406,170 +413,32 @@ function renderTaintedCompletionGrid(grid: TaintedCharacterProgress[]): void {
   renderGrid(grid, [...TAINTED_BOSS_SHORT_NAMES], { elementId: "tainted-completion-grid", nearCompleteThreshold: 3, bossFullNames });
 }
 
-const LANE_LABELS: Record<Lane, string> = {
-  "progression-gate": "Progression Gates",
-  "character-unlock": "Character Unlocks",
-  "completion-mark": "Completion Marks",
-  "challenge": "Challenges",
-  "donation": "Donation Milestones",
-  "guardrail": "Tips & Guardrails",
+const CATEGORY_LABELS: Record<ActionItem["category"], string> = {
+  run: "Boss route",
+  gate: "Progression goal",
+  unlock: "Character unlock",
+  mark: "Character mark",
+  challenge: "Challenge",
+  donation: "Donation grind",
+  daily: "Daily challenge",
+  warning: "Warning",
 };
 
-const LANE_BADGE_CLASS: Record<Lane, string> = {
-  "progression-gate": "high",
-  "character-unlock": "high",
-  "completion-mark": "med",
-  "challenge": "med",
-  "donation": "low",
-  "guardrail": "opt",
+const CATEGORY_BADGE_CLASS: Record<ActionItem["category"], string> = {
+  run: "high",
+  gate: "high",
+  unlock: "med",
+  mark: "med",
+  challenge: "med",
+  donation: "low",
+  daily: "high",
+  warning: "opt",
 };
-
-function renderPhaseProgress(phase: PhaseProgress | undefined): void {
-  const section = document.getElementById("phase-section");
-  const container = document.getElementById("phase-progress");
-  if (!section || !container) return;
-
-  if (!phase) {
-    section.classList.add("hidden");
-    return;
-  }
-  section.classList.remove("hidden");
-
-  const criteriaHtml = phase.criteria
-    .map((c) => {
-      const descHtml = c.wikiUrl ? wikiLink(c.wikiUrl, c.description) : c.description;
-      const howToHtml = c.howTo ? `<span class="phase-how-to">${c.howTo}</span>` : "";
-      return `<li class="phase-criterion ${c.met ? "met" : "unmet"}">${descHtml}${howToHtml}</li>`;
-    })
-    .join("");
-
-  container.innerHTML = `
-    <div class="phase-banner">
-      <div class="phase-header">
-        <span class="phase-label">Current Phase</span>
-        <span class="phase-name">${phase.phaseName}</span>
-      </div>
-      <div class="phase-description">${phase.phaseDescription}</div>
-      <ul class="phase-criteria">${criteriaHtml}</ul>
-    </div>
-  `;
-}
-
-function partitionRecommendations(
-  recs: LaneRecommendation[],
-  currentPhase?: ProgressionPhase,
-): { warnings: LaneRecommendation[]; critical: LaneRecommendation[]; secondary: LaneRecommendation[]; guardrails: LaneRecommendation[] } {
-  const warnings: LaneRecommendation[] = [];
-  const critical: LaneRecommendation[] = [];
-  const secondary: LaneRecommendation[] = [];
-  const guardrails: LaneRecommendation[] = [];
-
-  for (const r of recs) {
-    if (r.lane === "guardrail" && !r.isToxicWarning) {
-      guardrails.push(r);
-    } else if (r.isToxicWarning) {
-      warnings.push(r);
-    } else if (
-      (r.lane === "progression-gate" && r.blockedBy.length === 0 && (!currentPhase || r.phase === currentPhase)) ||
-      (currentPhase && r.phase === currentPhase)
-    ) {
-      critical.push(r);
-    } else {
-      secondary.push(r);
-    }
-  }
-
-  return { warnings, critical, secondary, guardrails };
-}
 
 function renderItemBadge(quality?: ItemQuality, name?: string): string {
   if (!quality) return "";
   const title = name ? ` title="${name}"` : "";
   return `<span class="item-badge ${quality}"${title}>${quality}</span>`;
-}
-
-function shouldCollapseRecommendation(rec: LaneRecommendation): boolean {
-  return rec.blockedBy.length > 0 || rec.whyNow.length > 120;
-}
-
-function shouldCollapseRunPlan(plan: RunPlan): boolean {
-  return plan.goals.length > 1 || plan.whyThisRun.length > 110;
-}
-
-function renderRecCard(r: LaneRecommendation): string {
-  const laneBadge = `<span class="badge ${LANE_BADGE_CLASS[r.lane]}">${LANE_LABELS[r.lane]}</span>`;
-  const itemBadge = renderItemBadge(r.itemQuality, r.itemName);
-  const collapsed = shouldCollapseRecommendation(r);
-
-  // Link entities in blocked-by descriptions
-  const blockedHtml =
-    r.blockedBy.length > 0
-      ? `<div class="blocked-by">Blocked: ${r.blockedBy.map((b) => {
-          if (b.achievementId != null) {
-            const achUrl = achievementWikiUrl(getAchievement(b.achievementId).name);
-            return achUrl ? `${b.description} ${wikiLink(achUrl, '↗')}` : b.description;
-          }
-          return b.description;
-        }).join("; ")}</div>`
-      : "";
-
-  const toxicClass = r.isToxicWarning ? " toxic-warning" : "";
-  let achievementLink = "";
-  if (r.achievementIds.length > 0) {
-    const ach = getAchievement(r.achievementIds[0]);
-    const url = achievementWikiUrl(ach.name);
-    if (url) {
-      achievementLink = ` <a href="${url}" target="_blank" rel="noopener" class="rec-wiki-link">wiki</a>`;
-    }
-  }
-
-  // Link entities in the target text
-  let targetHtml = r.target;
-  if (r.lane === "character-unlock") {
-    const unlockMatch = r.target.match(/^Unlock (.+)$/);
-    if (unlockMatch) {
-      const charName = unlockMatch[1];
-      targetHtml = `Unlock ${wikiLink(characterWikiUrl(charName), charName)}`;
-    }
-  } else if (r.lane === "challenge") {
-    // Target format: "Complete #N Name — unlocks Reward"
-    const chMatch = r.target.match(/^(Complete #\d+\s+)(.+?)(\s+—\s+unlocks\s+)(.+)$/);
-    if (chMatch) {
-      const [, prefix, chName, mid, reward] = chMatch;
-      const rewardLink = wikiLink(rewardWikiUrl(reward), reward);
-      targetHtml = `${prefix}${wikiLink(challengeWikiUrl(chName), chName)}${mid}${rewardLink}`;
-    } else {
-      // No reward variant: "Complete #N Name"
-      const chMatchNoReward = r.target.match(/^(Complete #\d+\s+)(.+)$/);
-      if (chMatchNoReward) {
-        const [, prefix, chName] = chMatchNoReward;
-        targetHtml = `${prefix}${wikiLink(challengeWikiUrl(chName), chName)}`;
-      }
-    }
-  } else if (r.itemName && targetHtml.includes(r.itemName)) {
-    targetHtml = targetHtml.replace(r.itemName, wikiLink(wikiUrl(r.itemName), r.itemName));
-  }
-
-  const reasonPreview = `<div class="rec-reason rec-reason-preview">${r.whyNow}</div>`;
-  const reasonFull = `<div class="rec-reason rec-reason-full">${r.whyNow}</div>`;
-  const detailsHtml = collapsed
-    ? `
-      <details class="card-details rec-details">
-        <summary class="card-details-summary">More detail</summary>
-        <div class="card-details-body">
-          ${reasonFull}
-          ${blockedHtml}
-        </div>
-      </details>
-    `
-    : "";
-
-  return `
-    <div class="rec-card lane-${r.lane}${toxicClass}">
-      <div class="rec-header">${laneBadge}${itemBadge} ${targetHtml}${achievementLink}</div>
-      ${collapsed ? reasonPreview : reasonFull}
-      ${collapsed ? detailsHtml : blockedHtml}
-    </div>`;
 }
 
 function renderRunGoal(goal: RunGoal, isPrimary: boolean): string {
@@ -595,198 +464,183 @@ function renderRunGoal(goal: RunGoal, isPrimary: boolean): string {
   return `<div class="${baseClass}">${prefix}${bossLink} mark${itemPart} ${qualityBadge}</div>`;
 }
 
-function renderRunPlanCard(plan: RunPlan, currentPhase?: ProgressionPhase, phaseName?: string): string {
-  const portrait = charSpritePath(plan.character);
-  const portraitHtml = portrait ? `<img src="${portrait}" alt="" class="run-portrait">` : "";
-  const characterLink = wikiLink(characterWikiUrl(plan.character), plan.character);
-  const routeLink = wikiLink(routeWikiUrl(plan.routeWikiPath), plan.route);
-  const timedBadge = renderTimedBadge(plan.timed, plan.timedDescription);
-  const phaseBadge = currentPhase && plan.phase === currentPhase && phaseName
-    ? `<span class="badge high">${phaseName}</span>`
-    : "";
-  const collapsed = shouldCollapseRunPlan(plan);
-  const secondaryGoals: string[] = [];
-  let angelRequirementAdded =
-    plan.primaryGoal.description.includes("Angel Room") ||
-    plan.primaryGoal.description.includes("Key Piece");
+function renderActionHeadline(item: ActionItem): string {
+  if (item.category === "run" && item.character && item.route) {
+    const portrait = charSpritePath(item.character);
+    const routeHtml = item.routeWikiPath ? wikiLink(routeWikiUrl(item.routeWikiPath), item.route) : item.route;
+    return `
+      <div class="run-plan-header">
+        ${portrait ? `<img src="${portrait}" alt="" class="run-portrait">` : ""}
+        <span class="run-character">${wikiLink(characterWikiUrl(item.character), item.character)}</span>
+        <span class="run-arrow">-&gt;</span>
+        <span class="run-destination">${routeHtml}</span>
+        ${renderTimedBadge(!!item.timed, item.timedDescription)}
+      </div>
+    `;
+  }
 
-  for (const goal of plan.goals) {
-    if (goal === plan.primaryGoal) continue;
-    secondaryGoals.push(renderRunGoal(goal, false));
-    if (goal.type !== "completion-mark" && goal.description.includes("Angel Room")) {
-      angelRequirementAdded = true;
+  if (item.category === "mark" && item.character && item.headline.includes("->")) {
+    const [character, boss] = item.headline.split("->").map((part) => part.trim());
+    return `${wikiLink(characterWikiUrl(character), character)} -> ${wikiLink(bossWikiUrl(boss), boss)}`;
+  }
+
+  if (item.category === "unlock" && item.character) {
+    return `Unlock ${wikiLink(characterWikiUrl(item.character), item.character)}`;
+  }
+
+  if (item.category === "challenge") {
+    const match = item.headline.match(/^(Complete #\d+\s+)(.+?)(\s+—\s+unlocks\s+(.+))?$/);
+    if (match) {
+      const [, prefix, challengeName, rewardPart, reward] = match;
+      return `${prefix}${wikiLink(challengeWikiUrl(challengeName), challengeName)}${rewardPart ? ` — unlocks ${wikiLink(rewardWikiUrl(reward), reward)}` : ""}`;
     }
   }
-  if ((plan.routeId === "mega-satan-dr" || plan.routeId === "mega-satan-ch") && !angelRequirementAdded) {
-    secondaryGoals.push(`<div class="run-goal note">Requires Angel Room key pieces in-run</div>`);
-  }
 
-  const primaryGoalHtml = renderRunGoal(plan.primaryGoal, true);
-  const whyPreview = `<div class="run-why run-why-preview">${plan.whyThisRun}</div>`;
-  const whyFull = `<div class="run-why run-why-full">${plan.whyThisRun}</div>`;
-  const primaryGoalsBlock = `<div class="run-goals run-goals-primary">${primaryGoalHtml}</div>`;
-  const secondaryGoalsBlock = secondaryGoals.length > 0
-    ? `<div class="run-goals run-goals-secondary">${secondaryGoals.join("")}</div>`
+  return linkifyText(item.headline, item.links);
+}
+
+function renderScoreBreakdown(item: ActionItem): string {
+  if (!item.scoreBreakdown) return "";
+  const b = item.scoreBreakdown;
+  return `
+    <details class="action-debug">
+      <summary>Score breakdown</summary>
+      <div class="action-debug-grid">
+        <span>impact</span><strong>${b.impact.toFixed(1)}</strong>
+        <span>readiness</span><strong>${b.readiness.toFixed(1)}</strong>
+        <span>effort</span><strong>${b.effort.toFixed(1)}</strong>
+        <span>item quality</span><strong>${b.itemQuality.toFixed(1)}</strong>
+        <span>phase</span><strong>${b.phaseAlignment.toFixed(1)}</strong>
+        <span>community</span><strong>${b.communityMeta.toFixed(1)}</strong>
+        <span>blocker decay</span><strong>${b.blockerDecay.toFixed(2)}</strong>
+        <span>diversity</span><strong>${b.diversityPenalty.toFixed(1)}</strong>
+        <span>base</span><strong>${b.baseScore.toFixed(1)}</strong>
+        <span>final</span><strong>${b.finalScore.toFixed(1)}</strong>
+      </div>
+    </details>
+  `;
+}
+
+function renderActionCard(item: ActionItem, expanded: boolean): string {
+  const badge = `<span class="badge ${CATEGORY_BADGE_CLASS[item.category]}">${CATEGORY_LABELS[item.category]}</span>`;
+  const itemBadge = renderItemBadge(item.itemQuality, item.itemName);
+  const blockedHtml = item.blockedBy && item.blockedBy.length > 0
+    ? `<div class="blocked-by">Blocked: ${item.blockedBy.map((blocker) => {
+        if (blocker.achievementId != null) {
+          const achievement = getAchievement(blocker.achievementId);
+          const url = achievementWikiUrl(achievement.name);
+          return url ? `${blocker.description} ${wikiLink(url, "↗")}` : blocker.description;
+        }
+        return blocker.description;
+      }).join("; ")}</div>`
     : "";
-  const detailsHtml = collapsed
+  const whyFirst = item.whyFirst ? `<div class="action-why-first">${item.whyFirst}</div>` : "";
+  const goals = item.category === "run" && item.goals && item.goals.length > 0
+    ? `<div class="run-goals">${item.goals.map((goal, index) => renderRunGoal(goal, index === 0)).join("")}</div>`
+    : "";
+  const detail = `<div class="rec-reason">${item.detail}</div>`;
+  const debug = renderScoreBreakdown(item);
+  const compact = !expanded && (item.detail.length > 150 || (item.goals?.length ?? 0) > 2);
+  const body = compact
     ? `
-      <details class="card-details run-plan-details">
-        <summary class="card-details-summary">Show full run breakdown</summary>
-        <div class="card-details-body">
-          ${whyFull}
-          ${secondaryGoalsBlock}
-        </div>
+      <details class="card-details">
+        <summary class="card-details-summary">More detail</summary>
+        <div class="card-details-body">${detail}${whyFirst}${goals}${blockedHtml}${debug}</div>
       </details>
     `
-    : "";
+    : `${detail}${whyFirst}${goals}${blockedHtml}${debug}`;
 
   return `
-    <div class="run-plan">
-      <div class="run-plan-header">
-        ${portraitHtml}<span class="run-character">${characterLink}</span>
-        <span class="run-arrow">-&gt;</span>
-        <span class="run-destination">${routeLink}</span>
-        ${phaseBadge}
-        ${timedBadge}
+    <article id="${actionAnchorId(item)}" class="rec-card action-card tier-${item.tier}${item.isToxicWarning ? " toxic-warning" : ""}">
+      <div class="rec-header">${badge}${itemBadge} ${renderActionHeadline(item)}</div>
+      ${compact ? `<div class="rec-reason rec-reason-preview">${item.detail}</div>` : ""}
+      ${body}
+    </article>
+  `;
+}
+
+function renderSuppressedItems(suppressedItems: SuppressedItem[] | undefined): string {
+  if (!suppressedItems || suppressedItems.length === 0) return "";
+  return `
+    <details class="lane-section">
+      <summary>Suppressed (${suppressedItems.length})</summary>
+      <div class="guardrails-panel">
+        ${suppressedItems.map((entry) => `
+          <div class="guardrail-item">
+            <strong>${entry.item.headline}</strong>
+            <p>${entry.reason}</p>
+            <p>Suppressed by <code>${entry.suppressedBy}</code> at ${entry.originalScore.toFixed(1)}</p>
+          </div>
+        `).join("")}
       </div>
-      ${collapsed ? whyPreview : whyFull}
-      ${collapsed ? primaryGoalsBlock : `<div class="run-goals">${[primaryGoalHtml, ...secondaryGoals].join("")}</div>`}
-      ${detailsHtml}
-    </div>
+    </details>
   `;
 }
 
-function renderTldr(tldr: TldrItem[] | undefined): void {
-  const container = document.getElementById("tldr");
-  if (!container) return;
-
-  if (!tldr || tldr.length === 0) {
-    container.innerHTML = "";
-    return;
-  }
-
-  const items = tldr.map((item, i) => {
-    const summaryText = linkifyText(item.summary, item.links);
-    return `<li class="tldr-item"><span class="tldr-num">${i + 1}.</span> <strong>${summaryText}</strong><span class="tldr-detail">${item.detail}</span></li>`;
-  }).join("");
-
-  container.innerHTML = `
-    <div class="tldr-panel">
-      <div class="tldr-header">TL;DR — Do These Next</div>
-      <ol class="tldr-list">${items}</ol>
-    </div>
-  `;
-}
-
-function selectSecondaryRecommendations(
-  secondary: LaneRecommendation[],
-  limit: number,
-): LaneRecommendation[] {
-  const laneCaps: Partial<Record<Lane, number>> = {
-    challenge: 3,
-    "character-unlock": 3,
-  };
-  const selected: LaneRecommendation[] = [];
-  const counts = new Map<Lane, number>();
-
-  for (const rec of secondary) {
-    if (selected.length >= limit) break;
-    const cap = laneCaps[rec.lane];
-    const used = counts.get(rec.lane) ?? 0;
-    if (cap != null && used >= cap) continue;
-    selected.push(rec);
-    counts.set(rec.lane, used + 1);
-  }
-
-  return selected;
-}
-
-function renderPathRecommendations(
-  runPlans: RunPlan[],
-  recs: LaneRecommendation[],
-  currentPhase?: ProgressionPhase,
-  phaseName?: string,
-  tldr?: TldrItem[],
+function renderActionPlan(
+  actionItems: ActionItem[],
+  suppressedItems: SuppressedItem[] | undefined,
 ): void {
   const warningsEl = document.getElementById("warnings");
-  const criticalEl = document.getElementById("critical-path");
-  const secondaryEl = document.getElementById("secondary-path");
-  if (!warningsEl || !criticalEl || !secondaryEl) return;
+  const tierOneEl = document.getElementById("tier-1");
+  const tierTwoThreeEl = document.getElementById("tier-2-3");
+  if (!warningsEl || !tierOneEl || !tierTwoThreeEl) return;
 
-  renderTldr(tldr);
+  const warnings = actionItems.filter((item) => item.isToxicWarning);
+  const guardrails = actionItems.filter((item) => item.category === "warning" && !item.isToxicWarning);
+  const actionable = actionItems.filter((item) => item.category !== "warning");
+  const tierOne = actionable.filter((item) => item.tier === 1);
+  const tierTwo = actionable.filter((item) => item.tier === 2);
+  const tierThree = actionable.filter((item) => item.tier === 3);
+  const backlog = actionable.filter((item) => item.tier === "backlog");
 
-  if (recs.length === 0 && runPlans.length === 0) {
-    warningsEl.innerHTML = "";
-    criticalEl.innerHTML = `<p class="empty">No recommendations — you're done!</p>`;
-    secondaryEl.innerHTML = "";
+  warningsEl.innerHTML = warnings.length > 0
+    ? `<div class="path-group path-group-warning"><div class="path-group-header">Toxic Item Warnings</div><div class="path-group-cards">${warnings.map((item) => renderActionCard(item, true)).join("")}</div></div>`
+    : "";
+
+  if (actionable.length === 0) {
+    tierOneEl.innerHTML = `<p class="empty">Nothing major stands out right now. You're mostly down to cleanup and edge cases.</p>`;
+    tierTwoThreeEl.innerHTML = guardrails.length > 0
+      ? `<details class="lane-section"><summary>Tips &amp; Warnings (${guardrails.length})</summary><div class="guardrails-panel">${guardrails.map((item) => `<div class="guardrail-item"><strong>${item.headline}</strong><p>${item.detail}</p></div>`).join("")}</div></details>`
+      : "";
     return;
   }
 
-  const { warnings, critical, secondary, guardrails } = partitionRecommendations(recs, currentPhase);
-
-  // Warnings: toxic panel only (toxic warnings are urgent — keep at top)
-  let warningsHtml = "";
-  if (warnings.length > 0) {
-    warningsHtml += `<div class="path-group path-group-warning"><div class="path-group-header">Toxic Item Warnings</div><div class="path-group-cards">`;
-    for (const r of warnings) {
-      warningsHtml += renderRecCard(r);
-    }
-    warningsHtml += `</div></div>`;
-  }
-  warningsEl.innerHTML = warningsHtml;
-
-  // Critical Path: show run plans first, then current-phase gate recs.
-  let criticalHtml = "";
-  if (runPlans.length > 0) {
-    criticalHtml += `<div class="path-group path-group-runs"><div class="path-group-header">Suggested Runs</div><div class="path-group-cards">`;
-    for (const plan of runPlans.slice(0, 3)) {
-      criticalHtml += renderRunPlanCard(plan, currentPhase, phaseName);
-    }
-    criticalHtml += `</div></div>`;
-  }
-  if (critical.length > 0) {
-    const heading = runPlans.length > 0
-      ? phaseName ? `Current-Phase Gates: ${phaseName}` : "Current-Phase Gates"
-      : phaseName ? `Critical Path: ${phaseName}` : "Critical Path";
-    criticalHtml += `<div class="path-group path-group-critical"><div class="path-group-header">${heading}</div><div class="path-group-cards">`;
-    for (const rec of critical.slice(0, runPlans.length > 0 ? 4 : 8)) {
-      criticalHtml += renderRecCard(rec);
-    }
-    criticalHtml += `</div></div>`;
-  }
-  criticalEl.innerHTML = criticalHtml;
-
-  // Secondary: top 6
-  let secondaryHtml = "";
-  const compactSecondary = selectSecondaryRecommendations(secondary, 6);
-  if (compactSecondary.length > 0) {
-    secondaryHtml += `<div class="path-group path-group-secondary path-group-grid"><div class="path-group-header">Also Worth Doing</div><div class="path-group-cards">`;
-    for (const r of compactSecondary) {
-      secondaryHtml += renderRecCard(r);
-    }
-    secondaryHtml += `</div></div>`;
+  if (actionable.length <= 5) {
+    tierOneEl.innerHTML = `
+      <div class="path-group tier-1">
+        <div class="path-group-header">Nearly There</div>
+        <div class="path-group-cards">${actionable.map((item) => renderActionCard(item, true)).join("")}</div>
+      </div>
+    `;
+  } else {
+    tierOneEl.innerHTML = `
+      <div class="path-group tier-1">
+        <div class="path-group-header">Do This</div>
+        <div class="path-group-cards">${tierOne.map((item) => renderActionCard(item, true)).join("")}</div>
+      </div>
+    `;
   }
 
-  // Guardrails: collapsed below actionable recs
+  const sections: string[] = [];
+  if (tierTwo.length > 0) {
+    sections.push(`<div class="path-group path-group-secondary path-group-grid tier-2"><div class="path-group-header">Rotate Into</div><div class="path-group-cards">${tierTwo.map((item) => renderActionCard(item, false)).join("")}</div></div>`);
+  } else if (actionable.length < 3) {
+    sections.push(`<div class="path-group path-group-secondary"><div class="path-group-header">Getting Started</div><p class="section-intro">There are not many equally strong alternatives yet, so focus on the top card first.</p></div>`);
+  }
+
+  if (tierThree.length > 0) {
+    sections.push(`<details class="lane-section"><summary>When You're Ready (${tierThree.length})</summary><div class="path-group-cards">${tierThree.map((item) => renderActionCard(item, false)).join("")}</div></details>`);
+  }
+
+  sections.push(`<details class="lane-section"><summary>Backlog (${backlog.length})</summary><div class="path-group-cards">${backlog.map((item) => renderActionCard(item, false)).join("")}</div></details>`);
+
   if (guardrails.length > 0) {
-    secondaryHtml += `<details class="lane-section"><summary>Tips &amp; Warnings (${guardrails.length})</summary>`;
-    secondaryHtml += `<div class="guardrails-panel">`;
-    for (const g of guardrails) {
-      secondaryHtml += `<div class="guardrail-item"><strong>${g.target}</strong><p>${g.whyNow}</p></div>`;
-    }
-    secondaryHtml += `</div></details>`;
+    sections.push(`<details class="lane-section"><summary>Tips &amp; Warnings (${guardrails.length})</summary><div class="guardrails-panel">${guardrails.map((item) => `<div class="guardrail-item"><strong>${item.headline}</strong><p>${item.detail}</p></div>`).join("")}</div></details>`);
   }
 
-  // All Recommendations: collapsed toggle with full actionable list
-  const actionable = recs.filter((r) => r.lane !== "guardrail" && !r.isToxicWarning);
-  if (actionable.length > 0) {
-    secondaryHtml += `<details class="lane-section"><summary>All Recommendations (${actionable.length})</summary>`;
-    for (const r of actionable) {
-      secondaryHtml += renderRecCard(r);
-    }
-    secondaryHtml += `</details>`;
-  }
-  secondaryEl.innerHTML = secondaryHtml;
+  sections.push(renderSuppressedItems(suppressedItems));
+  tierTwoThreeEl.innerHTML = sections.join("");
 }
 
 function renderChallenges(challenges: ChallengeInfo[]): void {
@@ -1044,14 +898,7 @@ export function renderResults(result: AnalysisResult): void {
   renderDlcBadge(result);
   renderSummary(result);
   renderOverview(result);
-  renderPathRecommendations(
-    result.runPlans,
-    result.laneRecommendations,
-    result.phaseProgress?.currentPhase,
-    result.phaseProgress?.phaseName,
-    result.tldr,
-  );
-  renderPhaseProgress(result.phaseProgress);
+  renderActionPlan(result.actionItems, result.suppressedItems);
   renderBossKillMilestones(result.bossKillMilestones);
   renderCompletionDashboard(result);
   renderCompletionGrid(result.completionGrid);

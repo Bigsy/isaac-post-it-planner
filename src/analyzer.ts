@@ -1,16 +1,17 @@
 import type {
-  SaveData,
+  ActionItem,
   AnalysisResult,
-  CharacterProgress,
-  TaintedCharacterProgress,
-  CharacterUnlock,
-  ChallengeInfo,
-  CounterStats,
-  PhaseProgress,
   BestiaryData,
   BestiaryEntry,
   BossKillMilestoneGroupStatus,
   BossKillMilestoneStatus,
+  ChallengeInfo,
+  CharacterProgress,
+  CharacterUnlock,
+  CounterStats,
+  SaveData,
+  SuppressedItem,
+  TaintedCharacterProgress,
 } from "./types";
 import type { DlcLevel } from "./data/dlc";
 import { getAchievement, TOTAL_ACHIEVEMENTS } from "./data/achievements";
@@ -21,15 +22,46 @@ import {
   COMPLETION_MARKS,
 } from "./data/characters";
 import { CHALLENGE_NAMES, CHALLENGE_REWARDS } from "./data/challenges";
-import { TAINTED_COMPLETION_MARKS, TAINTED_BOSS_NAMES } from "./data/tainted-marks";
+import { TAINTED_BOSS_NAMES, TAINTED_COMPLETION_MARKS } from "./data/tainted-marks";
 import { PROGRESSION_GATES } from "./data/progression";
 import { BESTIARY_ENTITIES, BESTIARY_TOTAL } from "./data/bestiary";
 import { analyzeMissingUnlocks } from "./data/achievement-categories";
 import { detectPhase, PHASE_DEFINITIONS, dlcAtLeast } from "./data/phases";
 import { BOSS_KILL_MILESTONE_GROUPS } from "./data/boss-milestones";
 import { achievementWikiUrl } from "./data/wiki";
-import { buildRunPlans } from "./run-planner";
-import { generateLaneRecommendations, generateTldr } from "./recommender";
+import { buildRunPlans, toActionItems as runPlansToActionItems } from "./run-planner";
+import {
+  evaluateChallenges,
+  evaluateCharacterUnlocks,
+  evaluateCompletionMarks,
+  evaluateDonation,
+  evaluateGuardrails,
+  evaluateProgressionGates,
+  generateLaneRecommendations,
+  generateWhyFirst,
+  laneRecommendationsToActionItems,
+} from "./recommender";
+
+interface AnalyzeOptions {
+  debug?: boolean;
+}
+
+const EFFORT_ORDER = new Map([
+  ["single-run", 0],
+  ["multi-run", 1],
+  ["grind", 2],
+]);
+
+const CATEGORY_ORDER = new Map([
+  ["run", 0],
+  ["gate", 1],
+  ["mark", 2],
+  ["challenge", 3],
+  ["unlock", 4],
+  ["daily", 5],
+  ["donation", 6],
+  ["warning", 7],
+]);
 
 function getUnlockedIds(achievements: number[], maxId: number = TOTAL_ACHIEVEMENTS): Set<number> {
   const ids = new Set<number>();
@@ -50,22 +82,20 @@ function countCollectiblesSeen(collectibles: number[]): { seen: number; total: n
 }
 
 function parseCounterStats(counters: number[]): CounterStats {
-  // Index 0 is a surplus zero (padding); real data starts at index 1.
-  // Offsets confirmed via Demorck/Isaac-save-manager & jamesthejellyfish/isaac-save-edit-script.
   const get = (i: number) => (i < counters.length ? counters[i] : 0);
   return {
-    momKills: get(1),              // 0x04
-    deaths: get(9),                // 0x24
-    momsHeartKills: get(1),        // same counter as momKills
-    rocksDestroyed: get(2),        // 0x08
-    tintedRocksDestroyed: get(3),  // 0x0C
-    poopDestroyed: get(5),         // 0x14
-    shopkeeperKills: get(11),      // 0x2C
-    greedDonationCoins: get(19),   // 0x4C
-    normalDonationCoins: get(20),  // 0x50
-    edenTokens: get(21),           // 0x54
-    winStreak: get(22),            // 0x58
-    bestStreak: get(23),           // 0x5C
+    momKills: get(1),
+    deaths: get(9),
+    momsHeartKills: get(1),
+    rocksDestroyed: get(2),
+    tintedRocksDestroyed: get(3),
+    poopDestroyed: get(5),
+    shopkeeperKills: get(11),
+    greedDonationCoins: get(19),
+    normalDonationCoins: get(20),
+    edenTokens: get(21),
+    winStreak: get(22),
+    bestStreak: get(23),
   };
 }
 
@@ -73,31 +103,30 @@ function analyzePhaseProgress(
   unlocked: Set<number>,
   stats: CounterStats,
   dlcLevel: DlcLevel,
-): PhaseProgress {
+) {
   const currentPhase = detectPhase(unlocked, stats, dlcLevel);
-  const phaseDef = PHASE_DEFINITIONS.find(p => p.id === currentPhase)!;
+  const phaseDef = PHASE_DEFINITIONS.find((phase) => phase.id === currentPhase)!;
   const applicableCriteria = phaseDef.completionCriteria.filter(
-    c => !c.requiredDlc || dlcAtLeast(dlcLevel, c.requiredDlc),
+    (criterion) => !criterion.requiredDlc || dlcAtLeast(dlcLevel, criterion.requiredDlc),
   );
-  const criteria = applicableCriteria.map(c => {
-    const met = c.type === "achievement" && c.achievementId != null
-      ? unlocked.has(c.achievementId)
-      : c.type === "counter-threshold" && c.counterField && c.counterThreshold != null
-        ? stats[c.counterField] >= c.counterThreshold
-        : false;
-    const ach = c.achievementId != null ? getAchievement(c.achievementId) : null;
-    return {
-      description: c.description,
-      met,
-      howTo: ach?.unlockDescription,
-      wikiUrl: ach ? achievementWikiUrl(ach.name) ?? undefined : undefined,
-    };
-  });
   return {
     currentPhase,
     phaseName: phaseDef.name,
     phaseDescription: phaseDef.description,
-    criteria,
+    criteria: applicableCriteria.map((criterion) => {
+      const met = criterion.type === "achievement" && criterion.achievementId != null
+        ? unlocked.has(criterion.achievementId)
+        : criterion.type === "counter-threshold" && criterion.counterField && criterion.counterThreshold != null
+          ? stats[criterion.counterField] >= criterion.counterThreshold
+          : false;
+      const achievement = criterion.achievementId != null ? getAchievement(criterion.achievementId) : null;
+      return {
+        description: criterion.description,
+        met,
+        howTo: achievement?.unlockDescription,
+        wikiUrl: achievement ? achievementWikiUrl(achievement.name) ?? undefined : undefined,
+      };
+    }),
   };
 }
 
@@ -107,14 +136,14 @@ function analyzeCharacterUnlocks(
 ): CharacterUnlock[] {
   return Object.entries(charMap)
     .sort(([a], [b]) => Number(a) - Number(b))
-    .map(([idStr, name]) => {
-      const id = Number(idStr);
-      const ach = getAchievement(id);
+    .map(([idText, name]) => {
+      const achievementId = Number(idText);
+      const achievement = getAchievement(achievementId);
       return {
-        achievementId: id,
+        achievementId,
         name,
-        unlocked: unlocked.has(id),
-        unlockDescription: ach.unlockDescription,
+        unlocked: unlocked.has(achievementId),
+        unlockDescription: achievement.unlockDescription,
       };
     });
 }
@@ -124,37 +153,32 @@ function analyzeCompletionMarks(
   maxAchId: number = TOTAL_ACHIEVEMENTS,
 ): CharacterProgress[] {
   const results: CharacterProgress[] = [];
-
   for (const [name, marks] of Object.entries(COMPLETION_MARKS)) {
     let done = 0;
     let total = 0;
     const markDetails: CharacterProgress["marks"] = [];
-
     for (let i = 0; i < marks.length; i++) {
-      const achId = marks[i];
-      if (achId === null || achId > maxAchId) continue;
+      const achievementId = marks[i];
+      if (achievementId == null || achievementId > maxAchId) continue;
+      const isDone = unlocked.has(achievementId);
       total++;
-      const isDone = unlocked.has(achId);
       if (isDone) done++;
-      markDetails.push({ boss: BOSS_NAMES[i], done: isDone, achievementId: achId });
+      markDetails.push({ boss: BOSS_NAMES[i], done: isDone, achievementId });
     }
-
-    // Skip characters where no marks survive the filter
-    if (markDetails.length === 0) continue;
-
-    results.push({ name, marks: markDetails, done, total });
+    if (markDetails.length > 0) {
+      results.push({ name, marks: markDetails, done, total });
+    }
   }
-
   return results;
 }
 
 function analyzeTaintedCompletionMarks(unlocked: Set<number>): TaintedCharacterProgress[] {
   return Object.entries(TAINTED_COMPLETION_MARKS).map(([name, marks]) => {
     let done = 0;
-    const markDetails = marks.map((achId, i) => {
-      const isDone = unlocked.has(achId);
+    const markDetails = marks.map((achievementId, index) => {
+      const isDone = unlocked.has(achievementId);
       if (isDone) done++;
-      return { boss: TAINTED_BOSS_NAMES[i] as string, done: isDone, achievementId: achId };
+      return { boss: TAINTED_BOSS_NAMES[index] as string, done: isDone, achievementId };
     });
     return { name, marks: markDetails, done, total: marks.length };
   });
@@ -164,13 +188,12 @@ function analyzeChallenges(challengeData: number[]): ChallengeInfo[] {
   const results: ChallengeInfo[] = [];
   for (let i = 1; i < challengeData.length; i++) {
     const name = CHALLENGE_NAMES[i];
-    if (!name) continue; // skip unknown challenge slots
-    const completed = challengeData[i] !== 0;
+    if (!name) continue;
     results.push({
       id: i,
       name,
       reward: CHALLENGE_REWARDS[i] ?? null,
-      completed,
+      completed: challengeData[i] !== 0,
     });
   }
   return results;
@@ -178,7 +201,6 @@ function analyzeChallenges(challengeData: number[]): ChallengeInfo[] {
 
 function analyzeBestiary(bestiary: BestiaryData | null): BestiaryEntry[] {
   if (!bestiary) return [];
-
   return BESTIARY_ENTITIES.map((entity) => {
     const key = `${entity.id}_${entity.variant}`;
     return {
@@ -199,14 +221,11 @@ function analyzeBossKillMilestones(
   maxAchId: number,
 ): BossKillMilestoneGroupStatus[] {
   return BOSS_KILL_MILESTONE_GROUPS.map((group) => {
-    // Filter milestones by DLC
-    const filtered = group.milestones.filter((m) => m.achievementId <= maxAchId);
-    if (filtered.length === 0) return null;
+    const milestones = group.milestones.filter((milestone) => milestone.achievementId <= maxAchId);
+    if (milestones.length === 0) return null;
 
-    // Get kill count from source
-    let currentKills: number;
-    let killCountKnown: boolean;
-
+    let currentKills = 0;
+    let killCountKnown = false;
     if (group.source.type === "counter") {
       currentKills = stats[group.source.field];
       killCountKnown = true;
@@ -214,47 +233,215 @@ function analyzeBossKillMilestones(
       currentKills = bestiary.kills.get(group.source.entityKey)!;
       killCountKnown = true;
     } else {
-      // Infer minimum kills from highest unlocked milestone
-      killCountKnown = false;
-      currentKills = 0;
-      for (let i = filtered.length - 1; i >= 0; i--) {
-        if (unlocked.has(filtered[i].achievementId)) {
-          currentKills = filtered[i].kills;
+      for (let i = milestones.length - 1; i >= 0; i--) {
+        if (unlocked.has(milestones[i].achievementId)) {
+          currentKills = milestones[i].kills;
           break;
         }
       }
     }
 
-    const milestones: BossKillMilestoneStatus[] = filtered.map((m) => ({
-      kills: m.kills,
-      achievementId: m.achievementId,
-      name: m.name,
-      unlocked: unlocked.has(m.achievementId),
+    const mappedMilestones: BossKillMilestoneStatus[] = milestones.map((milestone) => ({
+      kills: milestone.kills,
+      achievementId: milestone.achievementId,
+      name: milestone.name,
+      unlocked: unlocked.has(milestone.achievementId),
     }));
-
-    const nextMilestone = milestones.find((m) => !m.unlocked) ?? null;
 
     return {
       bossName: group.bossName,
       bossDisplayName: group.bossDisplayName,
       currentKills,
       killCountKnown,
-      milestones,
-      nextMilestone,
+      milestones: mappedMilestones,
+      nextMilestone: mappedMilestones.find((milestone) => !milestone.unlocked) ?? null,
     };
-  }).filter((g): g is BossKillMilestoneGroupStatus => g !== null);
+  }).filter((group): group is BossKillMilestoneGroupStatus => group !== null);
 }
 
-export function analyze(saveData: SaveData): AnalysisResult {
+function intersects(left: number[], right: number[]): boolean {
+  if (left.length === 0 || right.length === 0) return false;
+  const rightSet = new Set(right);
+  return left.some((id) => rightSet.has(id));
+}
+
+function compareActionItems(a: ActionItem, b: ActionItem): number {
+  if (Math.abs(b.score - a.score) > 2) return b.score - a.score;
+  if (a.blocked !== b.blocked) return a.blocked ? 1 : -1;
+  const effortA = EFFORT_ORDER.get(a.effort) ?? 99;
+  const effortB = EFFORT_ORDER.get(b.effort) ?? 99;
+  if (effortA !== effortB) return effortA - effortB;
+  const categoryA = CATEGORY_ORDER.get(a.category) ?? 99;
+  const categoryB = CATEGORY_ORDER.get(b.category) ?? 99;
+  if (categoryA !== categoryB) return categoryA - categoryB;
+  return a.headline.localeCompare(b.headline);
+}
+
+function deduplicateActionItems(
+  items: ActionItem[],
+  debug: boolean,
+): { items: ActionItem[]; suppressedItems?: SuppressedItem[] } {
+  const suppressedItems: SuppressedItem[] = [];
+  const exactWinners = new Map<string, ActionItem>();
+  const deduped: ActionItem[] = [];
+
+  for (const item of [...items].sort(compareActionItems)) {
+    const exactWinner = exactWinners.get(item.id);
+    if (exactWinner) {
+      if (debug) {
+        suppressedItems.push({
+          item,
+          suppressedBy: exactWinner.id,
+          reason: "dedup: exact duplicate id",
+          originalScore: item.score,
+        });
+      }
+      continue;
+    }
+    exactWinners.set(item.id, item);
+    deduped.push(item);
+  }
+
+  const suppressedIds = new Set<string>();
+  for (let i = 0; i < deduped.length; i++) {
+    const winner = deduped[i];
+    if (suppressedIds.has(winner.id)) continue;
+
+    for (let j = i + 1; j < deduped.length; j++) {
+      const loser = deduped[j];
+      if (suppressedIds.has(loser.id) || !intersects(winner.achievementIds, loser.achievementIds)) continue;
+
+      if (winner.category === "run" && loser.category !== "run" && !winner.timed && winner.score >= loser.score * 0.8) {
+        suppressedIds.add(loser.id);
+        if (debug) {
+          suppressedItems.push({
+            item: loser,
+            suppressedBy: winner.id,
+            reason: "dedup: run plan covers same unlock with comparable or better value",
+            originalScore: loser.score,
+          });
+        }
+        continue;
+      }
+
+      if (loser.category === "run" && winner.category !== "run" && !loser.timed && loser.score >= winner.score * 0.8) {
+        suppressedIds.add(winner.id);
+        if (debug) {
+          suppressedItems.push({
+            item: winner,
+            suppressedBy: loser.id,
+            reason: "dedup: run plan covers same unlock with comparable or better value",
+            originalScore: winner.score,
+          });
+        }
+        break;
+      }
+    }
+  }
+
+  return {
+    items: deduped.filter((item) => !suppressedIds.has(item.id)),
+    suppressedItems: debug ? suppressedItems : undefined,
+  };
+}
+
+function cloneActionItem(item: ActionItem): ActionItem {
+  return {
+    ...item,
+    blockedBy: item.blockedBy ? [...item.blockedBy] : undefined,
+    goals: item.goals ? [...item.goals] : undefined,
+    links: item.links ? [...item.links] : undefined,
+    scoreBreakdown: item.scoreBreakdown ? { ...item.scoreBreakdown } : undefined,
+  };
+}
+
+function applyDiversityPenalty(item: ActionItem, chosen: ActionItem[]): ActionItem {
+  if (chosen.length === 0 || item.category === "warning") return cloneActionItem(item);
+  let penalty = 0;
+  if (item.character && chosen.some((candidate) => candidate.character === item.character)) penalty += 5;
+  if (item.route && chosen.some((candidate) => candidate.route === item.route)) penalty += 8;
+  if (chosen.some((candidate) => candidate.effort === item.effort)) penalty += 3;
+  if (penalty === 0) return cloneActionItem(item);
+
+  const clone = cloneActionItem(item);
+  clone.score = Math.max(0, clone.score - penalty);
+  if (clone.scoreBreakdown) {
+    clone.scoreBreakdown.diversityPenalty = -penalty;
+    clone.scoreBreakdown.finalScore = clone.score;
+  }
+  return clone;
+}
+
+function assignTiers(items: ActionItem[]): ActionItem[] {
+  const warnings = items.filter((item) => item.category === "warning");
+  const actionable = items
+    .filter((item) => item.category !== "warning")
+    .sort(compareActionItems)
+    .map(cloneActionItem);
+
+  if (actionable.length === 0) {
+    return [...warnings.map(cloneActionItem)];
+  }
+
+  const topScore = actionable[0].score;
+  const tierOneThreshold = Math.max(25, topScore * 0.6);
+  const tierOne = actionable.filter((item) => item.score >= tierOneThreshold).slice(0, 3);
+  const tierOneIds = new Set(tierOne.map((item) => item.id));
+  for (const item of tierOne) item.tier = 1;
+
+  const tierTwoCandidates = actionable.filter((item) => !tierOneIds.has(item.id));
+  const tierTwo: ActionItem[] = [];
+  const chosen = [...tierOne];
+  while (tierTwo.length < 5 && tierTwoCandidates.length > 0) {
+    const rescored = tierTwoCandidates.map((candidate) => applyDiversityPenalty(candidate, chosen)).sort(compareActionItems);
+    const next = rescored[0];
+    if (!next || next.score <= 30) break;
+    next.tier = 2;
+    tierTwo.push(next);
+    chosen.push(next);
+    const index = tierTwoCandidates.findIndex((candidate) => candidate.id === next.id);
+    if (index !== -1) tierTwoCandidates.splice(index, 1);
+  }
+
+  const tierTwoIds = new Set(tierTwo.map((item) => item.id));
+  const remainder = actionable
+    .filter((item) => !tierOneIds.has(item.id) && !tierTwoIds.has(item.id))
+    .map((item) => {
+      const clone = cloneActionItem(item);
+      clone.tier = clone.score > 10 ? 3 : "backlog";
+      return clone;
+    });
+
+  return [
+    ...warnings.map((item) => {
+      const clone = cloneActionItem(item);
+      clone.tier = "backlog";
+      return clone;
+    }),
+    ...tierOne,
+    ...tierTwo,
+    ...remainder.sort((a, b) => {
+      if (a.tier !== b.tier) {
+        if (a.tier === 3) return -1;
+        if (b.tier === 3) return 1;
+      }
+      return compareActionItems(a, b);
+    }),
+  ];
+}
+
+function stripDebug(items: ActionItem[]): ActionItem[] {
+  return items.map((item) => ({ ...item, scoreBreakdown: undefined }));
+}
+
+export function analyze(saveData: SaveData, options: AnalyzeOptions = {}): AnalysisResult {
   const maxAchId = Math.max(0, Math.min(saveData.achievements.length - 1, TOTAL_ACHIEVEMENTS));
   const unlocked = getUnlockedIds(saveData.achievements, maxAchId);
   const stats = parseCounterStats(saveData.counters);
-  const { seen: collectiblesSeen, total: totalCollectibles } =
-    countCollectiblesSeen(saveData.collectibles);
+  const { seen: collectiblesSeen, total: totalCollectibles } = countCollectiblesSeen(saveData.collectibles);
   const dlcLevel = saveData.dlcLevel;
   const isRepentance = dlcLevel === "repentance";
 
-  // Filter character maps to DLC-appropriate characters
   const filteredBase = Object.fromEntries(
     Object.entries(BASE_CHARACTER_UNLOCKS).filter(([id]) => Number(id) <= maxAchId),
   );
@@ -263,15 +450,22 @@ export function analyze(saveData: SaveData): AnalysisResult {
   const baseCharacters = analyzeCharacterUnlocks(unlocked, filteredBase);
   const taintedCharacters = analyzeCharacterUnlocks(unlocked, filteredTainted);
   const completionGrid = analyzeCompletionMarks(unlocked, maxAchId);
-  const taintedCompletionGrid = isRepentance
-    ? analyzeTaintedCompletionMarks(unlocked)
-    : [];
+  const taintedCompletionGrid = isRepentance ? analyzeTaintedCompletionMarks(unlocked) : [];
   const challenges = analyzeChallenges(saveData.challenges);
   const phaseProgress = analyzePhaseProgress(unlocked, stats, dlcLevel);
   const bossKillMilestones = analyzeBossKillMilestones(unlocked, stats, saveData.bestiary, maxAchId);
+
   const laneRecommendations = generateLaneRecommendations(
-    unlocked, stats, completionGrid, taintedCompletionGrid, challenges, maxAchId, dlcLevel, bossKillMilestones,
+    unlocked,
+    stats,
+    completionGrid,
+    taintedCompletionGrid,
+    challenges,
+    maxAchId,
+    dlcLevel,
+    bossKillMilestones,
   );
+
   const availableCharacters = new Set<string>();
   for (const char of completionGrid) {
     const unlockEntry = Object.entries(BASE_CHARACTER_UNLOCKS)
@@ -281,12 +475,12 @@ export function analyze(saveData: SaveData): AnalysisResult {
     }
   }
   for (const char of taintedCompletionGrid) {
-    const unlockEntry = Object.entries(TAINTED_CHARACTER_UNLOCKS)
-      .find(([, name]) => name === char.name);
+    const unlockEntry = Object.entries(TAINTED_CHARACTER_UNLOCKS).find(([, name]) => name === char.name);
     if (unlockEntry && unlocked.has(Number(unlockEntry[0]))) {
       availableCharacters.add(char.name);
     }
   }
+
   const runPlans = buildRunPlans(
     completionGrid,
     taintedCompletionGrid,
@@ -299,10 +493,20 @@ export function analyze(saveData: SaveData): AnalysisResult {
     maxAchId,
   );
 
+  const merged = [
+    ...laneRecommendationsToActionItems(laneRecommendations),
+    ...runPlansToActionItems(runPlans),
+  ];
+  const deduped = deduplicateActionItems(merged, !!options.debug);
+  const actionItems = assignTiers(deduped.items);
+  const firstAction = actionItems.find((item) => item.category !== "warning");
+  if (firstAction) {
+    firstAction.whyFirst = generateWhyFirst(firstAction, firstAction.scoreBreakdown);
+  }
+
   const bestiaryEntries = analyzeBestiary(saveData.bestiary);
-  const bestiaryEncountered = bestiaryEntries.filter((e) => e.encountered > 0).length;
+  const bestiaryEncountered = bestiaryEntries.filter((entry) => entry.encountered > 0).length;
   const missingUnlocks = analyzeMissingUnlocks(unlocked, maxAchId);
-  const tldr = generateTldr(laneRecommendations, runPlans, phaseProgress.currentPhase);
 
   return {
     dlcLevel,
@@ -316,38 +520,37 @@ export function analyze(saveData: SaveData): AnalysisResult {
     completionGrid,
     taintedCompletionGrid,
     challenges,
-    laneRecommendations,
-    runPlans,
+    actionItems: options.debug ? actionItems : stripDebug(actionItems),
+    suppressedItems: options.debug ? deduped.suppressedItems : undefined,
     bestiary: bestiaryEntries,
     bestiaryEncountered,
     bestiaryTotal: bestiaryEntries.length > 0 ? BESTIARY_TOTAL : 0,
     missingUnlocks,
     bossKillMilestones,
     phaseProgress,
-    tldr,
   };
 }
 
-// Export internals for testing
 export {
-  getUnlockedIds,
-  countCollectiblesSeen,
-  analyzeCompletionMarks,
-  analyzeTaintedCompletionMarks,
-  analyzeCharacterUnlocks,
-  analyzeChallenges,
   analyzeBestiary,
   analyzeBossKillMilestones,
+  analyzeChallenges,
+  analyzeCharacterUnlocks,
+  assignTiers,
+  analyzeCompletionMarks,
+  analyzeTaintedCompletionMarks,
+  compareActionItems,
+  countCollectiblesSeen,
+  deduplicateActionItems,
+  getUnlockedIds,
 };
 
-// Re-export recommender functions so existing test imports don't break
 export {
-  generateLaneRecommendations,
-  evaluateProgressionGates,
+  evaluateChallenges,
   evaluateCharacterUnlocks,
   evaluateCompletionMarks,
-  evaluateChallenges,
   evaluateDonation,
   evaluateGuardrails,
-  generateTldr,
+  evaluateProgressionGates,
+  generateLaneRecommendations,
 } from "./recommender";

@@ -29,6 +29,7 @@ export const ITEM_VALUES: ItemValueEntry[] = [
   { achievementId: 431, itemName: "Birthright", quality: "s-tier", reason: "Jacob vs ??? — unique character upgrades" },
   { achievementId: 43, itemName: "Mom's Knife", quality: "s-tier", reason: "Isaac vs Satan — massive damage melee" },
   { achievementId: 29, itemName: "The D6", quality: "s-tier", reason: "??? vs Isaac — reroll pedestals (Isaac starting item)" },
+  { achievementId: 156, itemName: "Godhead", quality: "s-tier", reason: "The Lost full hard-mode post-it — huge homing damage aura" },
   { achievementId: 433, itemName: "Rock Bottom", quality: "s-tier", reason: "Jacob vs Boss Rush — locks stats at highest value" },
   { achievementId: 501, itemName: "Sacred Orb", quality: "s-tier", reason: "T.Lost vs Beast — rerolls bad items automatically" },
   { achievementId: 463, itemName: "C Section", quality: "s-tier", reason: "Lilith vs Beast — homing fetus tears" },
@@ -71,10 +72,10 @@ export const ITEM_VALUES: ItemValueEntry[] = [
   { achievementId: 574, itemName: "Cricket Leg", quality: "b-tier" },
   { achievementId: 576, itemName: "Polished Bone", quality: "b-tier" },
   { achievementId: 578, itemName: "Expansion Pack", quality: "b-tier" },
-  { achievementId: 580, itemName: "RC Remote", quality: "b-tier" },
+  { achievementId: 580, itemName: "RC Remote", quality: "toxic", reason: "trinket pool pollution — nearly useless unlock" },
 
   // === C-tier (weak unlocks) ===
-  { achievementId: 472, itemName: "Magic Skin", quality: "c-tier", reason: "Jacob & Esau vs Mother — steals heart containers" },
+  { achievementId: 472, itemName: "Magic Skin", quality: "toxic", reason: "run-health risk — repeated use costs hearts and drags runs sideways" },
   { achievementId: 51, itemName: "Abel", quality: "c-tier", reason: "Cain vs Lamb — mirrored familiar, nearly useless" },
   { achievementId: 55, itemName: "Blood Penny", quality: "c-tier", reason: "Samson vs ??? — half red heart from pennies" },
   { achievementId: 106, itemName: "Isaac's Tears", quality: "c-tier", reason: "Isaac vs Isaac — weak tear burst" },

@@ -5,6 +5,7 @@ import { detectSavePathPlatform, getOrderedSavePathGroups, type SavePathPlatform
 
 function handleFile(file: File): void {
   clearError();
+  const debug = new URLSearchParams(window.location.search).has("debug");
 
   if (!file.name.endsWith(".dat")) {
     showError("Please select an Isaac save file (.dat)");
@@ -15,7 +16,7 @@ function handleFile(file: File): void {
   reader.onload = () => {
     try {
       const saveData = parseSaveFile(reader.result as ArrayBuffer);
-      const result = analyze(saveData);
+      const result = analyze(saveData, { debug });
       renderResults(result);
     } catch (e) {
       showError(e instanceof Error ? e.message : "Failed to parse save file");

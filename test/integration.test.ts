@@ -28,16 +28,16 @@ describe("integration: full pipeline with sample save", () => {
     expect(result.completionGrid.length).toBe(17);
     expect(result.taintedCompletionGrid.length).toBe(17);
 
-    // Lane recommendations generated
-    expect(result.laneRecommendations.length).toBeGreaterThan(0);
-    expect(result.runPlans).toBeDefined();
-    expect(result.runPlans.length).toBeGreaterThan(0);
-    expect(result.runPlans.every((p) => p.whyThisRun.trim().length > 0)).toBe(true);
-    expect(result.runPlans.every((p) => !p.timed || !!p.timedDescription?.trim())).toBe(true);
+    // Unified action items generated
+    expect(result.actionItems.length).toBeGreaterThan(0);
+    const runItems = result.actionItems.filter((item) => item.category === "run");
+    expect(runItems.length).toBeGreaterThan(0);
+    expect(runItems.every((item) => item.detail.trim().length > 0)).toBe(true);
+    expect(runItems.every((item) => !item.timed || !!item.timedDescription?.trim())).toBe(true);
 
-    // Lane recommendations span multiple lanes
-    const lanes = new Set(result.laneRecommendations.map((r) => r.lane));
-    expect(lanes.size).toBeGreaterThanOrEqual(3);
+    // Action items span multiple categories
+    const categories = new Set(result.actionItems.map((item) => item.category));
+    expect(categories.size).toBeGreaterThanOrEqual(3);
 
     // Challenges
     expect(result.challenges.length).toBe(45);
@@ -87,11 +87,11 @@ describe("integration: multi-version saves", () => {
     expect(result.taintedCompletionGrid.length).toBe(0);
     expect(result.completionGrid[0].marks.length).toBe(6);
     expect(result.totalCollectibles).toBeGreaterThan(0);
-    expect(result.laneRecommendations.length).toBeGreaterThan(0);
-    expect(result.runPlans).toBeDefined();
-    expect(result.runPlans.every((p) => p.routeId !== "corpse")).toBe(true);
-    expect(result.runPlans.every((p) => p.routeId !== "home")).toBe(true);
-    expect(result.runPlans.every((p) => p.routeId !== "greedier")).toBe(true);
+    expect(result.actionItems.length).toBeGreaterThan(0);
+    const runs = result.actionItems.filter((item) => item.category === "run");
+    expect(runs.every((item) => item.route !== "Mother")).toBe(true);
+    expect(runs.every((item) => item.route !== "Home")).toBe(true);
+    expect(runs.every((item) => item.route !== "Greedier")).toBe(true);
   });
 
   it("Afterbirth save produces valid analysis", () => {
@@ -112,8 +112,9 @@ describe("integration: multi-version saves", () => {
     expect(result.taintedCharacters.length).toBe(0);
     expect(result.completionGrid[0].marks.length).toBe(11);
     expect(result.totalCollectibles).toBeGreaterThan(0);
-    expect(result.runPlans.every((p) => p.routeId !== "corpse")).toBe(true);
-    expect(result.runPlans.every((p) => p.routeId !== "home")).toBe(true);
+    const runs = result.actionItems.filter((item) => item.category === "run");
+    expect(runs.every((item) => item.route !== "Mother")).toBe(true);
+    expect(runs.every((item) => item.route !== "Home")).toBe(true);
   });
 
   it("Repentance+ save produces valid analysis", () => {
@@ -136,9 +137,7 @@ describe("integration: multi-version saves", () => {
     ];
     for (const file of saves) {
       const result = loadAndAnalyze(file);
-      // All saves should produce some recommendations (at minimum guardrails)
-      expect(result.laneRecommendations.length).toBeGreaterThan(0);
-      expect(result.runPlans).toBeDefined();
+      expect(result.actionItems.length).toBeGreaterThan(0);
     }
   });
 
@@ -158,8 +157,8 @@ describe("integration: multi-version saves", () => {
       bestiary: null,
     };
     const result = analyze(allUnlockedSingleGoalSave);
-    expect(result.runPlans.length).toBe(0);
-    expect(result.laneRecommendations.length).toBeGreaterThan(0);
+    expect(result.actionItems.filter((item) => item.category === "run")).toHaveLength(0);
+    expect(result.actionItems.length).toBeGreaterThan(0);
   });
 });
 
@@ -214,10 +213,8 @@ describe("integration: phaseProgress", () => {
 describe("integration: recommendation ordering", () => {
   it("user save prioritizes Polaroid and Greed setup ahead of challenge cleanup", () => {
     const result = loadAndAnalyze("user-save.dat");
-    const actionable = result.laneRecommendations.filter(
-      (r) => r.lane !== "guardrail" && !r.isToxicWarning,
-    );
-    const indexOf = (target: string) => actionable.findIndex((r) => r.target === target);
+    const actionable = result.actionItems.filter((item) => item.category !== "warning");
+    const indexOf = (target: string) => actionable.findIndex((item) => item.headline === target);
 
     const polaroid = indexOf("Defeat Isaac 5 times");
     const greedStart = indexOf("Start Greed Mode — rotate characters to build donation machine");

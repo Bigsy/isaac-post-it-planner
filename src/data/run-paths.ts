@@ -36,7 +36,7 @@ export const ROUTES: RouteDef[] = [
     requiredGates: ["blue-womb", "void-delirium"],
     greedMode: false,
     timed: true,
-    timedDescription: "Timed route: this planner treats Void as a Hush route, so it assumes the 30:00 Blue Womb cutoff.",
+    timedDescription: "Timed route: keep the Hush timer alive so the Void path stays open.",
   },
   {
     id: "sheol",

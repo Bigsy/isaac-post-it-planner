@@ -1,9 +1,11 @@
 import type {
+  ActionItem,
   CharacterProgress,
   CounterStats,
   PhaseProgress,
   RunGoal,
   RunPlan,
+  ScoreBreakdown,
   TaintedCharacterProgress,
 } from "./types";
 import type { DlcLevel } from "./data/dlc";
@@ -11,14 +13,17 @@ import type { ProgressionGate } from "./data/progression";
 import { PHASE_DEFINITIONS } from "./data/phases";
 import { getAchievement } from "./data/achievements";
 import { getItemValue, QUALITY_SCORE, type ItemQuality } from "./data/item-values";
+import { COMMUNITY_META } from "./data/community-meta";
 import { PROGRESSION_GATES, isGateCleared, SYSTEM_UNLOCK_MARKS } from "./data/progression";
 import { GATE_ROUTE_ALIGNMENT, ROUTES, TAINTED_BUNDLE_BOSSES, type RouteDef } from "./data/run-paths";
+import { slugifyActionPart } from "./recommender";
 
 const GATE_BONUS = 0.3;
 const PHASE_BONUS = 0.2;
 const TIMED_PENALTY = -0.15;
 const BUNDLED_PENALTY = -0.1;
 const EPSILON = 1e-9;
+const EFFORT_PENALTY = 1;
 
 interface ScoredRoutePlan {
   route: RouteDef;
@@ -357,4 +362,77 @@ export function buildRunPlans(
   }
 
   return plans.sort(sortPlans).slice(0, 5);
+}
+
+function clamp(n: number, min: number = 0, max: number = 1): number {
+  return Math.min(max, Math.max(min, n));
+}
+
+function computeRunScore(plan: RunPlan): { score: number; breakdown: ScoreBreakdown } {
+  const markGoals = plan.goals.filter((goal) => goal.type === "completion-mark");
+  const gateGoals = plan.goals.filter((goal) => goal.type === "gate-progress");
+  const achievementIds = plan.goals
+    .map((goal) => goal.achievementId)
+    .filter((goalId): goalId is number => goalId != null);
+  const impact = clamp(Math.min(markGoals.length, 4) / 4 + gateGoals.length * 0.2);
+  const readiness = clamp(1 - (plan.timed ? 0.3 : 0));
+  const qualityAverage = markGoals.length === 0
+    ? 0
+    : markGoals.reduce((sum, goal) => sum + (goal.itemQuality ? QUALITY_SCORE[goal.itemQuality] : 0), 0) / markGoals.length;
+  const phaseAlignment = plan.goals.some((goal) => goal.type === "phase-criterion") ? 1 : 0;
+  const communityMeta = readiness >= 0.4
+    ? achievementIds.reduce((best, id) => Math.max(best, COMMUNITY_META[id]?.weight ?? 0), 0)
+    : 0;
+
+  const impactPoints = impact * 35;
+  const readinessPoints = readiness * 25;
+  const itemQualityPoints = qualityAverage * 15;
+  const phasePoints = phaseAlignment * 15;
+  const communityPoints = communityMeta * 5;
+  const baseScore = Math.max(0, impactPoints + readinessPoints - EFFORT_PENALTY + itemQualityPoints + phasePoints + communityPoints);
+
+  return {
+    score: baseScore,
+    breakdown: {
+      impact: impactPoints,
+      readiness: readinessPoints,
+      effort: -EFFORT_PENALTY,
+      itemQuality: itemQualityPoints,
+      phaseAlignment: phasePoints,
+      communityMeta: communityPoints,
+      blockerDecay: 1,
+      diversityPenalty: 0,
+      baseScore,
+      finalScore: baseScore,
+    },
+  };
+}
+
+export function toActionItems(plans: RunPlan[]): ActionItem[] {
+  return plans.map((plan) => {
+    const { score, breakdown } = computeRunScore(plan);
+    const achievementIds = plan.goals
+      .map((goal) => goal.achievementId)
+      .filter((goalId): goalId is number => goalId != null);
+    return {
+      id: `run:${slugifyActionPart(plan.character)}:${plan.routeId}`,
+      tier: "backlog",
+      score,
+      headline: `${plan.character} -> ${plan.route}`,
+      detail: plan.whyThisRun,
+      category: "run",
+      effort: "single-run",
+      blocked: false,
+      achievementIds,
+      character: plan.character,
+      route: plan.route,
+      routeWikiPath: plan.routeWikiPath,
+      timed: plan.timed,
+      timedDescription: plan.timedDescription,
+      goals: plan.goals,
+      itemQuality: plan.primaryGoal.itemQuality,
+      itemName: plan.primaryGoal.itemName,
+      scoreBreakdown: breakdown,
+    };
+  });
 }

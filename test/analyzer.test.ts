@@ -17,9 +17,8 @@ import {
   evaluateChallenges,
   evaluateDonation,
   evaluateGuardrails,
-  generateTldr,
 } from "../src/analyzer";
-import type { CounterStats, BestiaryData, PhaseProgress, LaneRecommendation } from "../src/types";
+import type { CounterStats, BestiaryData, PhaseProgress } from "../src/types";
 import { BESTIARY_ENTITIES, BESTIARY_TOTAL } from "../src/data/bestiary";
 import type { ProgressionPhase } from "../src/data/phases";
 
@@ -112,9 +111,35 @@ describe("analyze (full pipeline)", () => {
     expect(unlockedNames).toContain("Judas");
   });
 
-  it("produces lane recommendations", () => {
+  it("produces unified action items", () => {
     const result = analyze(loadSample());
-    expect(result.laneRecommendations.length).toBeGreaterThan(0);
+    expect(result.actionItems.length).toBeGreaterThan(0);
+  });
+
+  it("produces unified action items with tiers", () => {
+    const result = analyze(loadSample());
+    expect(result.actionItems.length).toBeGreaterThan(0);
+    expect(result.actionItems.some((item) => item.category === "run" || item.category === "gate")).toBe(true);
+    expect(result.actionItems.some((item) => item.tier === 1 || item.tier === 2)).toBe(true);
+  });
+
+  it("does not expose legacy recommendation collections on the public result", () => {
+    const result = analyze(loadSample()) as unknown as Record<string, unknown>;
+    expect("laneRecommendations" in result).toBe(false);
+    expect("runPlans" in result).toBe(false);
+  });
+
+  it("populates whyFirst only for the top actionable item", () => {
+    const result = analyze(loadSample());
+    const actionable = result.actionItems.filter((item) => item.category !== "warning");
+    expect(actionable[0]?.whyFirst).toBeTruthy();
+    expect(actionable.slice(1).every((item) => item.whyFirst == null)).toBe(true);
+  });
+
+  it("adds score breakdowns and suppressed items in debug mode", () => {
+    const result = analyze(loadSample(), { debug: true });
+    expect(result.actionItems.some((item) => item.scoreBreakdown != null)).toBe(true);
+    expect(result.suppressedItems).toBeDefined();
   });
 
   it("has stats with deaths > 0", () => {
@@ -304,7 +329,9 @@ describe("evaluateCompletionMarks", () => {
     const baseGrid = analyzeCompletionMarks(unlocked);
     const taintedGrid = analyzeTaintedCompletionMarks(unlocked);
     const recs = evaluateCompletionMarks(unlocked, baseGrid, taintedGrid);
-    expect(recs.every((r) => r.lane === "completion-mark")).toBe(true);
+    const actionable = recs.filter((r) => !r.isToxicWarning);
+    expect(actionable.length).toBeGreaterThan(0);
+    expect(actionable.every((r) => r.lane === "completion-mark")).toBe(true);
   });
 
   it("detects untouched characters", () => {
@@ -594,8 +621,8 @@ describe("DLC-aware analysis", () => {
 
     it("has no tainted character recommendations", () => {
       const result = analyze(loadSave("Rebirth_persistentgamedata.dat"));
-      const taintedRecs = result.laneRecommendations.filter((r) =>
-        r.target.includes("T."),
+      const taintedRecs = result.actionItems.filter((item) =>
+        item.character?.startsWith("T."),
       );
       expect(taintedRecs.length).toBe(0);
     });
@@ -847,11 +874,11 @@ describe("phase-aware recommendations", () => {
     const taintedGrid = analyzeTaintedCompletionMarks(unlocked);
     const recs = evaluateCompletionMarks(unlocked, baseGrid, taintedGrid);
     const isaacRecs = recs.filter(
-      (r) => r.lane === "completion-mark" && r.target.includes("Isaac"),
+      (r) => r.lane === "completion-mark" && (r.character === "Isaac" || r.target.startsWith("Isaac:")),
     );
     // Should be exactly 1 rec (near-complete), not 2
     expect(isaacRecs.length).toBe(1);
-    expect(isaacRecs[0].whyNow).toContain("marks remaining");
+    expect(isaacRecs[0].whyNow).toContain("marks remain");
   });
 
   it("mid-progress characters collect toxic warnings", () => {
@@ -866,39 +893,5 @@ describe("phase-aware recommendations", () => {
     expect(toxicWarnings.length).toBeGreaterThan(0);
     const missingNo = toxicWarnings.find((r) => r.itemName === "Missing No.");
     expect(missingNo).toBeDefined();
-  });
-});
-
-describe("generateTldr", () => {
-  it("prefers current-phase unblocked gate over higher-scoring off-phase gate", () => {
-    const recs: LaneRecommendation[] = [
-      {
-        lane: "progression-gate",
-        target: "Off-phase gate",
-        achievementIds: [407],
-        blockedBy: [],
-        blockerDepth: 0,
-        estimatedEffort: "multi-run",
-        downstreamValue: 3,
-        score: 0.9,
-        whyNow: "off-phase",
-        phase: "phase-3-repentance",
-      },
-      {
-        lane: "progression-gate",
-        target: "Current-phase gate",
-        achievementIds: [57],
-        blockedBy: [],
-        blockerDepth: 0,
-        estimatedEffort: "multi-run",
-        downstreamValue: 1,
-        score: 0.2,
-        whyNow: "current-phase",
-        phase: "phase-1-foundations",
-      },
-    ];
-
-    const tldr = generateTldr(recs, [], "phase-1-foundations");
-    expect(tldr[0].summary).toBe("Current-phase gate");
   });
 });

@@ -71,10 +71,33 @@ export type Lane =
 
 export type EffortLevel = "single-run" | "multi-run" | "grind";
 
+export type ActionCategory =
+  | "run"
+  | "gate"
+  | "unlock"
+  | "mark"
+  | "challenge"
+  | "donation"
+  | "daily"
+  | "warning";
+
 export interface BlockingDep {
   description: string;
   achievementId: number | null;
   met: boolean;
+}
+
+export interface ScoreBreakdown {
+  impact: number;
+  readiness: number;
+  effort: number;
+  itemQuality: number;
+  phaseAlignment: number;
+  communityMeta: number;
+  blockerDecay: number;
+  diversityPenalty: number;
+  baseScore: number;
+  finalScore: number;
 }
 
 export interface LaneRecommendation {
@@ -92,6 +115,15 @@ export interface LaneRecommendation {
   itemName?: string;
   isToxicWarning?: boolean;
   bossPriority?: number;
+  gateId?: string;
+  challengeId?: number;
+  character?: string;
+  boss?: string;
+  donationMachine?: "greed" | "normal";
+  warningId?: string;
+  actionCategory?: ActionCategory;
+  scoreBreakdown?: ScoreBreakdown;
+  links?: { text: string; url: string }[];
 }
 
 /** Challenge info */
@@ -195,6 +227,38 @@ export interface RunPlan {
   greedMode: boolean;
 }
 
+export interface ActionItem {
+  id: string;
+  tier: 1 | 2 | 3 | "backlog";
+  score: number;
+  headline: string;
+  detail: string;
+  category: ActionCategory;
+  effort: EffortLevel;
+  blocked: boolean;
+  blockedBy?: BlockingDep[];
+  achievementIds: number[];
+  whyFirst?: string;
+  character?: string;
+  route?: string;
+  routeWikiPath?: string;
+  timed?: boolean;
+  timedDescription?: string;
+  goals?: RunGoal[];
+  itemQuality?: ItemQuality;
+  itemName?: string;
+  isToxicWarning?: boolean;
+  links?: { text: string; url: string }[];
+  scoreBreakdown?: ScoreBreakdown;
+}
+
+export interface SuppressedItem {
+  item: ActionItem;
+  suppressedBy: string;
+  reason: string;
+  originalScore: number;
+}
+
 export interface BossKillMilestoneStatus {
   kills: number;
   achievementId: number;
@@ -211,14 +275,6 @@ export interface BossKillMilestoneGroupStatus {
   nextMilestone: BossKillMilestoneStatus | null;
 }
 
-export interface TldrItem {
-  lane: Lane;
-  summary: string;
-  detail: string;
-  /** Entity names in the summary that should be wiki-linked, with their URLs */
-  links?: { text: string; url: string }[];
-}
-
 /** Full analysis result passed to UI */
 export interface AnalysisResult {
   dlcLevel: DlcLevel;
@@ -232,13 +288,12 @@ export interface AnalysisResult {
   completionGrid: CharacterProgress[];
   taintedCompletionGrid: TaintedCharacterProgress[];
   challenges: ChallengeInfo[];
-  laneRecommendations: LaneRecommendation[];
-  runPlans: RunPlan[];
+  actionItems: ActionItem[];
+  suppressedItems?: SuppressedItem[];
   bestiary: BestiaryEntry[];
   bestiaryEncountered: number;
   bestiaryTotal: number;
   missingUnlocks: MissingUnlocksResult;
   bossKillMilestones: BossKillMilestoneGroupStatus[];
   phaseProgress?: PhaseProgress;
-  tldr?: TldrItem[];
 }
