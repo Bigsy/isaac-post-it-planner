@@ -210,8 +210,8 @@ function renderSummary(result: AnalysisResult): void {
   ].filter(Boolean).join("");
 
   const summaryCopy = phase
-    ? `You're in ${phase.phaseName}. ${result.totalAchievements - result.unlockedCount} achievements remain. The sections below split out your best next play, strong follow-ups, and longer-term cleanup.`
-    : `${result.totalAchievements - result.unlockedCount} achievements remain. The sections below split out your best next play, strong follow-ups, and longer-term cleanup.`;
+    ? `You're in ${phase.phaseName} with ${result.totalAchievements - result.unlockedCount} achievements to go.`
+    : `${result.totalAchievements - result.unlockedCount} achievements to go.`;
 
   container.innerHTML = `
     <div class="summary-shell">
@@ -259,8 +259,7 @@ function renderSummary(result: AnalysisResult): void {
       </div>
 
       <div class="summary-card summary-focus">
-        <div class="summary-card-heading">Featured Pick</div>
-        <p class="summary-card-copy">The summary points at the top priority, then links you down into the full Play Next queue without duplicating cards.</p>
+        <div class="summary-card-heading">Top Priority</div>
         ${topAction ? renderSummaryFeaturedAction(topAction) : `<p class="summary-empty">No action shortlist generated for this save.</p>`}
         <div class="summary-card-heading summary-card-subheading">Rotate Into</div>
         ${renderSummaryFollowUps(followUps)}
@@ -297,26 +296,26 @@ function renderOverview(result: AnalysisResult): void {
   ): string => `
     <div class="overview-panel">
       <h3>${title}</h3>
-      <p class="overview-panel-copy">${description}</p>
+      ${description ? `<p class="overview-panel-copy">${description}</p>` : ""}
       <div class="overview-stat-list">${items.join("")}</div>
     </div>
   `;
 
   $("overview").innerHTML = `
     <div class="overview-panels">
-      ${renderOverviewPanel("Run History", "High-signal counters that show how the save has been progressing overall.", [
+      ${renderOverviewPanel("Run History", "", [
         renderOverviewStat("Mom Kills", s.momKills.toLocaleString(), "momKills"),
         renderOverviewStat("Mom's Heart Kills", s.momsHeartKills.toLocaleString(), "momKills"),
         renderOverviewStat("Deaths", s.deaths.toLocaleString(), "deaths"),
         renderOverviewStat("Win Streak", s.winStreak.toLocaleString(), "winStreak"),
         renderOverviewStat("Best Streak", s.bestStreak.toLocaleString(), "bestStreak"),
       ])}
-      ${renderOverviewPanel("Economy", "Run-level resources and donation progress that affect unlock pace.", [
+      ${renderOverviewPanel("Economy", "", [
         renderOverviewStat("Eden Tokens", s.edenTokens.toLocaleString(), "edenTokens"),
         renderOverviewStat("Normal Donation", s.normalDonationCoins.toLocaleString(), "donationMachine"),
         renderOverviewStat("Greed Donation", s.greedDonationCoins.toLocaleString(), "greedDonation"),
       ])}
-      ${renderOverviewPanel("Environment", "Low-priority world counters that are useful as supporting context.", [
+      ${renderOverviewPanel("Environment", "", [
         renderOverviewStat("Rocks Destroyed", s.rocksDestroyed.toLocaleString(), "rocksDestroyed"),
         renderOverviewStat("Tinted Rocks", s.tintedRocksDestroyed.toLocaleString(), "tintedRocks"),
         renderOverviewStat("Poop Destroyed", s.poopDestroyed.toLocaleString(), "poopDestroyed"),

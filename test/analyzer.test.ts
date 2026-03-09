@@ -385,7 +385,7 @@ describe("evaluateDonation", () => {
     const recs = evaluateDonation(unlocked, stats);
     const greed = recs.find((r) => r.target.includes("Greed Donation"));
     expect(greed).toBeDefined();
-    expect(greed!.whyNow).toContain("(100/");
+    expect(greed!.whyNow).toContain("100/");
   });
 
   it("includes coin progress in normal whyNow", () => {
@@ -394,7 +394,7 @@ describe("evaluateDonation", () => {
     const recs = evaluateDonation(unlocked, stats);
     const normal = recs.find((r) => r.target.includes("Normal Donation"));
     expect(normal).toBeDefined();
-    expect(normal!.whyNow).toContain("(5/");
+    expect(normal!.whyNow).toContain("5/");
   });
 });
 
@@ -863,7 +863,7 @@ describe("phase-aware recommendations", () => {
     expect(isaacRec!.itemQuality).toBeDefined();
     expect(isaacRec!.itemName).toBeDefined();
     expect(isaacRec!.bossPriority).toBeDefined();
-    expect(isaacRec!.whyNow).toContain("In progress");
+    expect(isaacRec!.whyNow).toContain("done — next up:");
   });
 
   it("mid-progress characters do not duplicate near-complete recs", () => {
@@ -878,7 +878,7 @@ describe("phase-aware recommendations", () => {
     );
     // Should be exactly 1 rec (near-complete), not 2
     expect(isaacRecs.length).toBe(1);
-    expect(isaacRecs[0].whyNow).toContain("marks remain");
+    expect(isaacRecs[0].whyNow).toContain("marks left");
   });
 
   it("mid-progress characters collect toxic warnings", () => {

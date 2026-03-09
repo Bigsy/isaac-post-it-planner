@@ -427,7 +427,7 @@ export function evaluateCharacterUnlocks(
     let detail = `${getAchievement(id).unlockDescription} — opens ${markCount} completion marks`;
 
     if (best) {
-      detail += ` — best unlock nearby: ${best.itemName}`;
+      detail += ` — best item unlock: ${best.itemName}`;
     }
 
     if (id === 82 && stats && stats.greedDonationCoins < 879) {
@@ -478,7 +478,7 @@ export function evaluateCharacterUnlocks(
 
       const best = bestRemainingMark(name, unlocked, true);
       const itemQuality = best ? QUALITY_SCORE[best.quality] : Math.min(characterItemValue(name, unlocked, true) / 5, 1);
-      const detail = `Reach Home as ${name.replace("T.", "")} with Red Key or Cracked Key — opens 7 tainted marks${best ? ` — best unlock nearby: ${best.itemName}` : ""}`;
+      const detail = `Reach Home as ${name.replace("T.", "")} with Red Key or Cracked Key — opens 7 tainted marks${best ? ` — best item unlock: ${best.itemName}` : ""}`;
 
       recs.push(createLaneRecommendation({
         lane: "character-unlock",
@@ -530,10 +530,10 @@ export function evaluateCompletionMarks(
     const remaining = char.total - char.done;
     const effort: EffortLevel = char.done === 0 ? "grind" : remaining <= 2 ? "single-run" : "multi-run";
     const detail = char.done === 0
-      ? `Fresh character with ${char.total} marks available — best opener is ${best.bossName} for ${best.itemName}`
+      ? `${char.total} marks to earn — start with ${best.bossName} for ${best.itemName}`
       : remaining <= 4
-        ? `Only ${remaining} marks remain — best next mark is ${best.bossName} for ${best.itemName}`
-        : `In progress at ${char.done}/${char.total} — best remaining mark is ${best.bossName} for ${best.itemName}`;
+        ? `${remaining} marks left — next up: ${best.bossName} for ${best.itemName}`
+        : `${char.done}/${char.total} done — next up: ${best.bossName} for ${best.itemName}`;
 
     recs.push(createLaneRecommendation({
       lane: "completion-mark",
@@ -578,10 +578,10 @@ export function evaluateCompletionMarks(
     const remaining = char.total - char.done;
     const effort: EffortLevel = char.done === 0 ? "grind" : remaining <= 2 ? "single-run" : "multi-run";
     const detail = char.done === 0
-      ? `Fresh tainted character with ${char.total} marks available — best opener is ${best.bossName} for ${best.itemName}`
+      ? `${char.total} tainted marks to earn — start with ${best.bossName} for ${best.itemName}`
       : remaining <= 3
-        ? `Only ${remaining} tainted marks remain — best next mark is ${best.bossName} for ${best.itemName}`
-        : `In progress at ${char.done}/${char.total} — best remaining mark is ${best.bossName} for ${best.itemName}`;
+        ? `${remaining} tainted marks left — next up: ${best.bossName} for ${best.itemName}`
+        : `${char.done}/${char.total} done — next up: ${best.bossName} for ${best.itemName}`;
 
     recs.push(createLaneRecommendation({
       lane: "completion-mark",
@@ -676,12 +676,12 @@ export function evaluateChallenges(
     const communityMeta = achievementId != null ? communityMetaValue([achievementId], readiness) : 0;
 
     let whyNow = depth === 0
-      ? `${tier}-value challenge, ready now`
+      ? (tier === "high" ? "Strong reward, ready to attempt" : "Ready to attempt now")
       : `Blocked by: ${blockers.map((blocker) => blocker.description).join("; ")}`;
     if (isRuneChallenge && unlockedRunes < 6) {
       whyNow += reachesSixRunes
-        ? " — this is the run that gets you to the 6-rune breakpoint"
-        : ` — classic runes are still below the 6-rune breakpoint (${unlockedRunes}/6)`;
+        ? " — completing this gets you to 6 runes, which cleans up the rune pool"
+        : ` — ${unlockedRunes}/6 runes unlocked, getting to 6 cleans up the rune pool`;
     }
 
     recs.push(createLaneRecommendation({
@@ -757,8 +757,8 @@ export function evaluateDonation(
       estimatedEffort: "grind",
       downstreamValue: milestone.strategic ? 5 : 1,
       whyNow: milestone.strategic
-        ? `Strategic Greed milestone (${stats.greedDonationCoins}/${milestone.coins})`
-        : `Next Greed donation milestone (${stats.greedDonationCoins}/${milestone.coins})`,
+        ? `Key Greed milestone — ${stats.greedDonationCoins}/${milestone.coins} coins`
+        : `Greed donation progress — ${stats.greedDonationCoins}/${milestone.coins} coins`,
       donationMachine: "greed",
       actionCategory: "donation",
     }, {
@@ -784,8 +784,8 @@ export function evaluateDonation(
       estimatedEffort: "grind",
       downstreamValue: milestone.strategic ? 2 : 1,
       whyNow: milestone.strategic
-        ? `Strategic donation milestone (${stats.normalDonationCoins}/${milestone.coins})`
-        : `Passive donation progress (${stats.normalDonationCoins}/${milestone.coins})`,
+        ? `Key donation milestone — ${stats.normalDonationCoins}/${milestone.coins} coins`
+        : `Donation progress — ${stats.normalDonationCoins}/${milestone.coins} coins`,
       donationMachine: "normal",
       actionCategory: "donation",
     }, {
@@ -932,39 +932,39 @@ export function laneRecommendationsToActionItems(recs: LaneRecommendation[]): Ac
 }
 
 export function generateWhyFirst(item: ActionItem, breakdown?: ScoreBreakdown): string {
-  if (!breakdown) return " #1 because: best overall mix of value and readiness.";
+  if (!breakdown) return "Best overall mix of value and readiness.";
 
   const reasons: string[] = [];
   if (breakdown.phaseAlignment >= breakdown.baseScore * 0.3) {
-    reasons.push("advances your current phase");
+    reasons.push("Advances your current phase");
   }
 
   if (item.category === "gate") {
     const gateMarks = item.detail.match(/unlocks (\d+)\+? new marks/i);
     if (gateMarks) {
-      reasons.push(`opens ${gateMarks[1]}+ new marks`);
+      reasons.push(`Opens ${gateMarks[1]}+ new marks`);
     } else if (breakdown.impact >= breakdown.readiness && breakdown.impact >= breakdown.itemQuality) {
-      reasons.push("opens new routes");
+      reasons.push("Opens new routes");
     }
   }
 
   if (reasons.length === 0 && breakdown.readiness >= 18 && breakdown.effort >= -5) {
-    reasons.push("quick win that's ready right now");
+    reasons.push("Quick win — ready right now");
   }
 
   if (reasons.length === 0 && breakdown.itemQuality > 8 && item.itemName) {
-    reasons.push(`unlocks ${item.itemName}`);
+    reasons.push(`Unlocks ${item.itemName}`);
   }
 
   if (reasons.length === 0 && breakdown.communityMeta >= 3) {
-    reasons.push("widely valued account unlock");
+    reasons.push("Widely valued account unlock");
   }
 
   if (reasons.length === 0 && breakdown.impact > 0) {
-    reasons.push("best overall value");
+    reasons.push("Best overall value");
   }
 
-  return `#1 because: ${reasons.slice(0, 2).join(" + ")}.`;
+  return reasons.slice(0, 2).join(" + ") + ".";
 }
 
 export function generateLaneRecommendations(
