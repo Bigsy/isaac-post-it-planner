@@ -3,6 +3,16 @@ import { analyze } from "./analyzer";
 import { renderResults, showError, clearError } from "./ui";
 import { detectSavePathPlatform, getOrderedSavePathGroups, type SavePathPlatform } from "./save-paths";
 
+function setLoadingState(loading: boolean): void {
+  const dropZone = document.getElementById("drop-zone");
+  if (!dropZone) return;
+  if (loading) {
+    dropZone.classList.add("drop-zone--loading");
+  } else {
+    dropZone.classList.remove("drop-zone--loading");
+  }
+}
+
 function handleFile(file: File): void {
   clearError();
   const debug = new URLSearchParams(window.location.search).has("debug");
@@ -12,6 +22,8 @@ function handleFile(file: File): void {
     return;
   }
 
+  setLoadingState(true);
+
   const reader = new FileReader();
   reader.onload = () => {
     try {
@@ -20,9 +32,14 @@ function handleFile(file: File): void {
       renderResults(result);
     } catch (e) {
       showError(e instanceof Error ? e.message : "Failed to parse save file");
+    } finally {
+      setLoadingState(false);
     }
   };
-  reader.onerror = () => showError("Failed to read file");
+  reader.onerror = () => {
+    setLoadingState(false);
+    showError("Failed to read file");
+  };
   reader.readAsArrayBuffer(file);
 }
 
@@ -109,10 +126,15 @@ function renderPathHelper(): void {
     .join("");
 
   container.innerHTML = `
-    <p class="path-label">Common save folders:</p>
-    <div class="path-groups">${groupHtml}</div>
-    <p class="path-tip">${pickerTip(platform)}</p>
-    <p class="path-tip path-tip-secondary">${steamCloudTip()}</p>
+    <details class="path-helper-toggle">
+      <summary class="path-helper-summary">Can't find your save file?</summary>
+      <div class="path-helper-body">
+        <p class="path-label">Common save folders:</p>
+        <div class="path-groups">${groupHtml}</div>
+        <p class="path-tip">${pickerTip(platform)}</p>
+        <p class="path-tip path-tip-secondary">${steamCloudTip()}</p>
+      </div>
+    </details>
   `;
 
   container.addEventListener("click", (e) => {
@@ -136,6 +158,12 @@ function init(): void {
   const fileInput = document.getElementById("file-input") as HTMLInputElement;
 
   renderPathHelper();
+
+  // "Load another save" button in sticky nav
+  const reuploadBtn = document.getElementById("nav-reupload");
+  if (reuploadBtn) {
+    reuploadBtn.addEventListener("click", () => fileInput.click());
+  }
 
   // File picker
   fileInput.addEventListener("change", () => {

@@ -70,18 +70,6 @@ function renderDlcBadge(result: AnalysisResult): void {
   el.className = `dlc-badge dlc-${result.dlcLevel}`;
 }
 
-function renderSummaryMetric(label: string, value: number, total: number): string {
-  const percentage = pct(value, total);
-  return `
-    <div class="summary-metric">
-      <div class="summary-metric-label">${label}</div>
-      <div class="summary-metric-value">${value}/${total}</div>
-      <div class="summary-metric-subtitle">${percentage}% complete</div>
-      <div class="progress-bar"><div class="progress-fill" style="width:${percentage}%"></div></div>
-    </div>
-  `;
-}
-
 function renderQuickStat(label: string, value: string, statKey: string): string {
   return `
     <div class="quick-stat">
@@ -105,57 +93,6 @@ function actionAnchorId(item: ActionItem): string {
   return `action-${item.id}`;
 }
 
-function renderSummaryFeaturedAction(item: ActionItem): string {
-  if (item.category === "run" && item.character && item.route) {
-    const portrait = charSpritePath(item.character);
-    return `
-      <a href="#${actionAnchorId(item)}" class="summary-feature-link">
-        <div class="summary-route">
-          <div class="summary-route-line">
-            ${portrait ? `<img src="${portrait}" alt="" class="run-portrait">` : ""}
-            <span class="summary-route-character">${wikiLink(characterWikiUrl(item.character), item.character)}</span>
-            <span class="summary-route-arrow">-&gt;</span>
-            <span class="summary-route-destination">${item.routeWikiPath ? wikiLink(routeWikiUrl(item.routeWikiPath), item.route) : item.route}</span>
-            ${renderTimedBadge(!!item.timed, item.timedDescription)}
-          </div>
-          <div class="summary-route-why">${item.headline}</div>
-          <div class="summary-route-goal">${item.whyFirst ?? item.detail}</div>
-        </div>
-      </a>
-    `;
-  }
-
-  return `
-    <a href="#${actionAnchorId(item)}" class="summary-feature-link">
-      <div class="summary-route">
-        <div class="summary-route-line">
-          <span class="summary-route-character">${item.headline}</span>
-        </div>
-        <div class="summary-route-why">${item.whyFirst ?? item.detail}</div>
-      </div>
-    </a>
-  `;
-}
-
-function renderSummaryFollowUps(items: ActionItem[]): string {
-  if (items.length === 0) {
-    return `<p class="summary-empty">No additional strong alternatives right now.</p>`;
-  }
-
-  return `
-    <ol class="summary-focus-list">
-      ${items.map((item, index) => `
-        <li class="summary-focus-item">
-          <span class="summary-focus-index">${index + 2}</span>
-          <div>
-            <a href="#${actionAnchorId(item)}"><strong>${item.headline}</strong></a>
-            <span class="summary-focus-detail">${item.detail}</span>
-          </div>
-        </li>
-      `).join("")}
-    </ol>
-  `;
-}
 
 function renderSummary(result: AnalysisResult): void {
   const container = document.getElementById("summary");
@@ -186,87 +123,87 @@ function renderSummary(result: AnalysisResult): void {
     `
     : "";
 
-  const baseMarks = result.completionGrid.reduce((sum, char) => sum + char.done, 0);
-  const baseTotal = result.completionGrid.reduce((sum, char) => sum + char.total, 0);
-  const taintedMarks = result.taintedCompletionGrid.reduce((sum, char) => sum + char.done, 0);
-  const taintedTotal = result.taintedCompletionGrid.reduce((sum, char) => sum + char.total, 0);
   const completedChallenges = result.challenges.filter((challenge) => challenge.completed).length;
-  const unlockedCharacters =
-    result.baseCharacters.filter((char) => char.unlocked).length +
-    result.taintedCharacters.filter((char) => char.unlocked).length;
-  const totalCharacters = result.baseCharacters.length + result.taintedCharacters.length;
   const actionableItems = result.actionItems.filter((item) => item.category !== "warning");
   const topAction = actionableItems[0];
-  const followUps = actionableItems.slice(1, 3);
+  // Count only tier 1+2 items (genuine alternatives), not later goals/backlog
+  const peerAlternatives = actionableItems.filter((item) => item.tier === 1 || item.tier === 2).length - 1;
+  const alternativeCount = Math.max(0, peerAlternatives);
   const toxicWarnings = result.actionItems.filter((item) => item.isToxicWarning).length;
-
-  const metrics = [
-    renderSummaryMetric("Base Marks", baseMarks, baseTotal),
-    taintedTotal > 0 ? renderSummaryMetric("Tainted Marks", taintedMarks, taintedTotal) : "",
-    renderSummaryMetric("Challenges", completedChallenges, result.challenges.length),
-    renderSummaryMetric("Characters", unlockedCharacters, totalCharacters),
-    renderSummaryMetric("Collectibles", result.collectiblesSeen, result.totalCollectibles),
-    result.bestiaryTotal > 0 ? renderSummaryMetric("Bestiary", result.bestiaryEncountered, result.bestiaryTotal) : "",
-  ].filter(Boolean).join("");
 
   const summaryCopy = phase
     ? `You're in ${phase.phaseName} with ${result.totalAchievements - result.unlockedCount} achievements to go.`
     : `${result.totalAchievements - result.unlockedCount} achievements to go.`;
 
-  container.innerHTML = `
-    <div class="summary-shell">
-      <div class="summary-card summary-hero">
-        <div class="summary-kicker">Campaign Snapshot</div>
-        <div class="summary-title">
-          ${result.unlockedCount}
-          <span class="summary-title-total">/ ${result.totalAchievements}</span>
-        </div>
-        <div class="summary-subtitle">achievements unlocked</div>
-        <p class="summary-copy">${summaryCopy}</p>
-        <div class="summary-pill-row">
-          <span class="summary-pill">${DLC_LABELS[result.dlcLevel]}</span>
-          ${phase ? `<span class="summary-pill">${criteriaMet}/${criteriaTotal} phase checks met</span>` : ""}
-          <span class="summary-pill">${completedChallenges}/${result.challenges.length} challenges cleared</span>
-          <span class="summary-pill">${result.missingUnlocks.totalMissing} unlocks remaining</span>
-          ${toxicWarnings > 0 ? `<span class="summary-pill warning">${toxicWarnings} toxic warning${toxicWarnings === 1 ? "" : "s"}</span>` : ""}
-        </div>
-        <div class="summary-progress-label">
-          <span>Overall completion</span>
-          <strong>${pct(result.unlockedCount, result.totalAchievements)}%</strong>
-        </div>
-        <div class="progress-bar"><div class="progress-fill" style="width:${pct(result.unlockedCount, result.totalAchievements)}%"></div></div>
-        <div class="summary-hero-phase">
-          <div class="summary-card-heading">Phase Status</div>
-          ${phase
-            ? `
-              <div class="summary-phase-name">${phase.phaseName}</div>
-              <p class="summary-card-copy">${phase.phaseDescription}</p>
-              <div class="summary-progress-label">
-                <span>Criteria met</span>
-                <strong>${criteriaMet}/${criteriaTotal}</strong>
-              </div>
-              <div class="progress-bar"><div class="progress-fill" style="width:${criteriaPct}%"></div></div>
-              ${nextCriterion
-                ? `<div class="summary-phase-next"><span class="summary-phase-next-label">Next breakpoint</span><strong>${nextCriterionHtml}</strong></div>`
-                : `<div class="summary-phase-next complete"><span class="summary-phase-next-label">Status</span><strong>Current phase criteria complete</strong></div>`}
-              ${phaseCriteriaHtml}
-            `
-            : `
-              <div class="summary-phase-name">No phase detected</div>
-              <p class="summary-card-copy">Load a save file to see the progression phase and its gating criteria.</p>
-            `}
-        </div>
-      </div>
+  // Compact callout for #1 action
+  let calloutHtml = "";
+  if (topAction) {
+    let calloutText: string;
+    if (topAction.category === "run" && topAction.character && topAction.route) {
+      const portrait = charSpritePath(topAction.character);
+      const portraitHtml = portrait ? `<img src="${portrait}" alt="" class="run-portrait">` : "";
+      calloutText = `${portraitHtml}<span class="summary-callout-label">Next move:</span> ${wikiLink(characterWikiUrl(topAction.character), topAction.character)} <span class="summary-callout-arrow">&#8594;</span> ${topAction.routeWikiPath ? wikiLink(routeWikiUrl(topAction.routeWikiPath), topAction.route) : topAction.route}`;
+    } else {
+      calloutText = `<span class="summary-callout-label">Next move:</span> ${topAction.headline}`;
+    }
+    const altLine = alternativeCount > 0
+      ? `<div class="summary-callout-alt"><a href="#tier-2-3">+ ${alternativeCount} alternative${alternativeCount === 1 ? "" : "s"} below</a></div>`
+      : "";
+    calloutHtml = `
+      <a href="#${actionAnchorId(topAction)}" class="summary-callout">
+        <div class="summary-callout-main">${calloutText}</div>
+      </a>
+      ${altLine}
+    `;
+  }
 
-      <div class="summary-card summary-focus">
-        <div class="summary-card-heading">Top Priority</div>
-        ${topAction ? renderSummaryFeaturedAction(topAction) : `<p class="summary-empty">No action shortlist generated for this save.</p>`}
-        <div class="summary-card-heading summary-card-subheading">Rotate Into</div>
-        ${renderSummaryFollowUps(followUps)}
+  container.innerHTML = `
+    <div class="summary-card summary-hero">
+      <div class="summary-kicker">Campaign Snapshot</div>
+      <div class="summary-title">
+        ${result.unlockedCount}
+        <span class="summary-title-total">/ ${result.totalAchievements}</span>
+      </div>
+      <div class="summary-subtitle">achievements unlocked</div>
+      <p class="summary-copy">${summaryCopy}</p>
+      <div class="summary-pill-row">
+        <span class="summary-pill">${DLC_LABELS[result.dlcLevel]}</span>
+        ${phase ? `<span class="summary-pill">${criteriaMet}/${criteriaTotal} phase checks met</span>` : ""}
+        <span class="summary-pill">${completedChallenges}/${result.challenges.length} challenges cleared</span>
+        <span class="summary-pill">${result.missingUnlocks.totalMissing} unlocks remaining</span>
+        ${toxicWarnings > 0 ? `<span class="summary-pill warning">${toxicWarnings} toxic warning${toxicWarnings === 1 ? "" : "s"}</span>` : ""}
+      </div>
+      <div class="summary-progress-label">
+        <span>Overall completion</span>
+        <strong>${pct(result.unlockedCount, result.totalAchievements)}%</strong>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${pct(result.unlockedCount, result.totalAchievements)}%"></div></div>
+      ${calloutHtml}
+      <div class="summary-hero-phase">
+        <div class="summary-card-heading">Phase Status</div>
+        ${phase
+          ? `
+            <div class="summary-phase-name">${phase.phaseName}</div>
+            <p class="summary-card-copy">${phase.phaseDescription}</p>
+            <div class="summary-progress-label">
+              <span>Criteria met</span>
+              <strong>${criteriaMet}/${criteriaTotal}</strong>
+            </div>
+            <div class="progress-bar"><div class="progress-fill" style="width:${criteriaPct}%"></div></div>
+            ${nextCriterion
+              ? `<div class="summary-phase-next"><span class="summary-phase-next-label">Next breakpoint</span><strong>${nextCriterionHtml}</strong></div>`
+              : `<div class="summary-phase-next complete"><span class="summary-phase-next-label">Status</span><strong>Current phase criteria complete</strong></div>`}
+            <details class="phase-criteria-toggle">
+              <summary class="phase-criteria-toggle-summary">Phase criteria (${criteriaMet}/${criteriaTotal})</summary>
+              ${phaseCriteriaHtml}
+            </details>
+          `
+          : `
+            <div class="summary-phase-name">No phase detected</div>
+            <p class="summary-card-copy">Load a save file to see the progression phase and its gating criteria.</p>
+          `}
       </div>
     </div>
-
-    <div class="summary-metrics">${metrics}</div>
 
     <div class="summary-stats">
       ${renderQuickStat("Mom Kills", s.momKills.toLocaleString(), "momKills")}
@@ -524,7 +461,7 @@ function renderActionCard(item: ActionItem, expanded: boolean): string {
   const badge = `<span class="badge ${CATEGORY_BADGE_CLASS[item.category]}">${CATEGORY_LABELS[item.category]}</span>`;
   const itemBadge = renderItemBadge(item.itemQuality, item.itemName);
   const blockedHtml = item.blockedBy && item.blockedBy.length > 0
-    ? `<div class="blocked-by">Blocked: ${item.blockedBy.map((blocker) => {
+    ? `<div class="blocked-by">Needs: ${item.blockedBy.map((blocker) => {
         if (blocker.achievementId != null) {
           const achievement = getAchievement(blocker.achievementId);
           const url = achievementWikiUrl(achievement.name);
@@ -551,7 +488,7 @@ function renderActionCard(item: ActionItem, expanded: boolean): string {
 
   return `
     <article id="${actionAnchorId(item)}" class="rec-card action-card tier-${item.tier}${item.isToxicWarning ? " toxic-warning" : ""}">
-      <div class="rec-header">${badge}${itemBadge} ${renderActionHeadline(item)}</div>
+      <div class="rec-header">${badge} ${renderActionHeadline(item)}${itemBadge}</div>
       ${compact ? `<div class="rec-reason rec-reason-preview">${item.detail}</div>` : ""}
       ${body}
     </article>
@@ -600,7 +537,7 @@ function renderActionPlan(
   if (actionable.length === 0) {
     tierOneEl.innerHTML = `<p class="empty">Nothing major stands out right now. You're mostly down to cleanup and edge cases.</p>`;
     tierTwoThreeEl.innerHTML = guardrails.length > 0
-      ? `<details class="lane-section"><summary>Tips &amp; Warnings (${guardrails.length})</summary><div class="guardrails-panel">${guardrails.map((item) => `<div class="guardrail-item"><strong>${item.headline}</strong><p>${item.detail}</p></div>`).join("")}</div></details>`
+      ? `<details class="lane-section"><summary>Things to Know (${guardrails.length})</summary><div class="guardrails-panel">${guardrails.map((item) => `<div class="guardrail-item"><strong>${item.headline}</strong><p>${item.detail}</p></div>`).join("")}</div></details>`
       : "";
     return;
   }
@@ -623,23 +560,42 @@ function renderActionPlan(
 
   const sections: string[] = [];
   if (tierTwo.length > 0) {
-    sections.push(`<div class="path-group path-group-secondary path-group-grid tier-2"><div class="path-group-header">Rotate Into</div><div class="path-group-cards">${tierTwo.map((item) => renderActionCard(item, false)).join("")}</div></div>`);
+    sections.push(`<div class="path-group path-group-secondary path-group-grid tier-2"><div class="path-group-header">Good Alternatives</div><div class="path-group-cards">${tierTwo.map((item) => renderActionCard(item, false)).join("")}</div></div>`);
   } else if (actionable.length < 3) {
-    sections.push(`<div class="path-group path-group-secondary"><div class="path-group-header">Getting Started</div><p class="section-intro">There are not many equally strong alternatives yet, so focus on the top card first.</p></div>`);
+    sections.push(`<div class="path-group path-group-secondary"><div class="path-group-header">Good Alternatives</div><p class="section-intro">Focus on the top pick for now — no equally strong alternatives yet.</p></div>`);
   }
 
   if (tierThree.length > 0) {
-    sections.push(`<details class="lane-section"><summary>When You're Ready (${tierThree.length})</summary><div class="path-group-cards">${tierThree.map((item) => renderActionCard(item, false)).join("")}</div></details>`);
+    const TIER3_CAP = 10;
+    const visibleThree = tierThree.slice(0, TIER3_CAP);
+    const hiddenThree = tierThree.slice(TIER3_CAP);
+    const showAllBtn = hiddenThree.length > 0
+      ? `<div class="tier3-show-all-wrap"><button class="tier3-show-all" type="button">Show all (${tierThree.length})</button></div>`
+      : "";
+    const hiddenHtml = hiddenThree.length > 0
+      ? `<div class="tier3-overflow hidden">${hiddenThree.map((item) => renderActionCard(item, false)).join("")}</div>`
+      : "";
+    sections.push(`<details class="lane-section"><summary>Later Goals (${tierThree.length})</summary><div class="path-group-cards">${visibleThree.map((item) => renderActionCard(item, false)).join("")}</div>${hiddenHtml}${showAllBtn}</details>`);
   }
 
-  sections.push(`<details class="lane-section"><summary>Backlog (${backlog.length})</summary><div class="path-group-cards">${backlog.map((item) => renderActionCard(item, false)).join("")}</div></details>`);
+  sections.push(`<details class="lane-section"><summary>Lower Priority (${backlog.length})</summary><div class="path-group-cards">${backlog.map((item) => renderActionCard(item, false)).join("")}</div></details>`);
 
   if (guardrails.length > 0) {
-    sections.push(`<details class="lane-section"><summary>Tips &amp; Warnings (${guardrails.length})</summary><div class="guardrails-panel">${guardrails.map((item) => `<div class="guardrail-item"><strong>${item.headline}</strong><p>${item.detail}</p></div>`).join("")}</div></details>`);
+    sections.push(`<details class="lane-section"><summary>Things to Know (${guardrails.length})</summary><div class="guardrails-panel">${guardrails.map((item) => `<div class="guardrail-item"><strong>${item.headline}</strong><p>${item.detail}</p></div>`).join("")}</div></details>`);
   }
 
   sections.push(renderSuppressedItems(suppressedItems));
   tierTwoThreeEl.innerHTML = sections.join("");
+
+  // Wire up "Show all" for capped tier 3
+  const showAllBtn = tierTwoThreeEl.querySelector(".tier3-show-all");
+  if (showAllBtn) {
+    showAllBtn.addEventListener("click", () => {
+      const overflow = tierTwoThreeEl.querySelector(".tier3-overflow");
+      if (overflow) overflow.classList.remove("hidden");
+      showAllBtn.parentElement?.remove();
+    });
+  }
 }
 
 function renderChallenges(challenges: ChallengeInfo[]): void {
@@ -857,7 +813,7 @@ function renderBossKillMilestones(milestones: BossKillMilestoneGroupStatus[]): v
       ? `${group.currentKills} kills`
       : `${group.currentKills}+ kills (estimated)`;
 
-    const rows = group.milestones.map((m) => {
+    const renderRow = (m: typeof group.milestones[0]) => {
       const icon = m.unlocked ? "&#10003;" : "&#10007;";
       const stateClass = m.unlocked ? "unlocked" : "locked";
       const nextClass = !m.unlocked && group.nextMilestone?.achievementId === m.achievementId ? " next" : "";
@@ -869,10 +825,24 @@ function renderBossKillMilestones(milestones: BossKillMilestoneGroupStatus[]): v
           <span class="milestone-kills">${m.kills} kills</span>
           <span class="milestone-name">${milestoneName}</span>
         </div>`;
-    }).join("");
+    };
+
+    const remaining = group.milestones.filter((m) => !m.unlocked);
+    const completed = group.milestones.filter((m) => m.unlocked);
+    const remainingRows = remaining.map(renderRow).join("");
+    const completedRows = completed.map(renderRow).join("");
+
+    const completedToggle = completed.length > 0 && remaining.length > 0
+      ? `<details class="milestone-completed-toggle"><summary class="milestone-completed-summary">Show completed (${completed.length})</summary><div class="milestone-rows">${completedRows}</div></details>`
+      : "";
 
     const openAttr = allDone ? "" : " open";
     const completeClass = allDone ? " complete" : "";
+
+    // If all done, show all rows directly; otherwise show remaining first, then toggle for completed
+    const rowsHtml = allDone
+      ? `<div class="milestone-rows">${completedRows}</div>`
+      : `<div class="milestone-rows">${remainingRows}</div>${completedToggle}`;
 
     html += `
       <details class="milestone-group${completeClass}"${openAttr}>
@@ -883,7 +853,7 @@ function renderBossKillMilestones(milestones: BossKillMilestoneGroupStatus[]): v
             <span class="milestone-count">${done}/${total} — ${killsLabel}</span>
           </span>
         </summary>
-        <div class="milestone-rows">${rows}</div>
+        ${rowsHtml}
       </details>`;
   }
 
@@ -901,6 +871,12 @@ export function renderResults(result: AnalysisResult): void {
   renderBossKillMilestones(result.bossKillMilestones);
   renderCompletionDashboard(result);
   renderCompletionGrid(result.completionGrid);
+
+  // Conditional grid heading: drop "(Base)" when no tainted section
+  const gridHeading = document.querySelector("#completion-grid-section h2");
+  if (gridHeading) {
+    gridHeading.textContent = result.dlcLevel === "repentance" ? "Completion Marks (Base)" : "Completion Marks";
+  }
 
   // Conditionally show/hide tainted section
   const taintedSection = document.getElementById("tainted-section");
