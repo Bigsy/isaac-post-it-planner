@@ -1,5 +1,7 @@
 # Isaac Post-it Planner
 
+**https://isaac.bigsy.uk**
+
 A client-side web app that reads your Binding of Isaac save file and tells you what to focus on next. Existing tools show what you *have* — this one tells you what to *do*.
 
 Drop your save file in the browser. Nothing is uploaded; everything runs locally.
