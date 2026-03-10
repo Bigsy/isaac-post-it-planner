@@ -280,6 +280,7 @@ interface GridConfig {
   elementId: string;
   nearCompleteThreshold: number;
   bossFullNames: string[];
+  recommendedChars?: Set<string>;
 }
 
 function bossHeaderCell(shortName: string, fullName: string): string {
@@ -307,46 +308,77 @@ function renderGrid(
 
   const headerRow = `<tr><th>Character</th>${bossHeaders.map((b, i) =>
     bossHeaderCell(b, config.bossFullNames[i] ?? b),
-  ).join("")}<th>Done</th></tr>`;
+  ).join("")}</tr>`;
 
   const rows = grid.map((char) => {
     const remaining = char.total - char.done;
     const nearComplete = remaining > 0 && remaining <= config.nearCompleteThreshold && char.done > 0;
-    const rowClass = nearComplete ? "near-complete" : char.done === char.total && char.total > 0 ? "complete" : "";
+    const completionPct = char.total === 0 ? 0 : (char.done / char.total) * 100;
+    const isComplete = char.done === char.total && char.total > 0;
+    const isRecommended = config.recommendedChars?.has(char.name) ?? false;
+    const rowClass = nearComplete ? "near-complete" : isComplete ? "complete" : "";
+    const filterStatus = isRecommended ? "recommended" : isComplete ? "complete" : nearComplete ? "near-complete" : "incomplete";
     const cells = char.marks.map(markCell).join("");
     const portrait = charSpritePath(char.name);
     const portraitHtml = portrait
       ? `<img src="${portrait}" alt="" class="char-portrait">`
       : "";
     const charLink = wikiLink(characterWikiUrl(char.name), char.name);
-    return `<tr class="${rowClass}"><td class="char-name">${portraitHtml}${charLink}</td>${cells}<td class="done-count">${char.done}/${char.total}</td></tr>`;
+    const doneCount = `<span class="char-done-count">${char.done}/${char.total}</span>`;
+    const gradientStyle = `background: linear-gradient(90deg, rgba(76,175,80,${(completionPct * 0.06 / 100).toFixed(3)}) 0%, rgba(76,175,80,${(completionPct * 0.06 / 100).toFixed(3)}) ${completionPct.toFixed(0)}%, transparent ${completionPct.toFixed(0)}%)`;
+    return `<tr class="${rowClass}" data-status="${filterStatus}" style="${gradientStyle}"><td class="char-name">${portraitHtml}${charLink} ${doneCount}</td>${cells}</tr>`;
   });
 
+  // Mobile card view
+  const cards = grid.map((char) => {
+    const portrait = charSpritePath(char.name);
+    const portraitHtml = portrait ? `<img src="${portrait}" alt="" class="char-portrait">` : "";
+    const charLink = wikiLink(characterWikiUrl(char.name), char.name);
+    const completionPct = char.total === 0 ? 0 : (char.done / char.total) * 100;
+    const remaining = char.total - char.done;
+    const nearComplete = remaining > 0 && remaining <= config.nearCompleteThreshold && char.done > 0;
+    const isComplete = char.done === char.total && char.total > 0;
+    const isRecommended = config.recommendedChars?.has(char.name) ?? false;
+    const filterStatus = isRecommended ? "recommended" : isComplete ? "complete" : nearComplete ? "near-complete" : "incomplete";
+    const missing = char.marks.filter((m) => m.achievementId !== null && !m.done);
+    const missingHtml = missing.length > 0
+      ? `<div class="mobile-card-missing">${missing.map((m) => {
+          const src = markSpritePath(m.boss, false);
+          const shortName = bossHeaders[char.marks.indexOf(m)] ?? m.boss;
+          return src
+            ? `<span class="mobile-mark" title="${shortName}"><img src="${src}" alt="${shortName}" class="mark-icon"></span>`
+            : `<span class="mobile-mark" title="${shortName}">${shortName}</span>`;
+        }).join("")}</div>`
+      : `<div class="mobile-card-complete">All marks complete</div>`;
+    return `<div class="mobile-char-card" data-status="${filterStatus}"><div class="mobile-card-header">${portraitHtml}${charLink} <span class="char-done-count">${char.done}/${char.total}</span></div><div class="progress-bar"><div class="progress-fill" style="width:${completionPct.toFixed(1)}%"></div></div>${missingHtml}</div>`;
+  }).join("");
+
   container.innerHTML = `
-    <div class="marks-table-wrapper">
+    <div class="marks-table-wrapper desktop-only">
       <table class="marks-table">
         <thead>${headerRow}</thead>
         <tbody>${rows.join("")}</tbody>
       </table>
     </div>
+    <div class="mobile-char-cards mobile-only">${cards}</div>
   `;
 }
 
-function renderCompletionGrid(grid: CharacterProgress[]): void {
+function renderCompletionGrid(grid: CharacterProgress[], recommendedChars?: Set<string>): void {
   const bossHeaders = grid.length > 0
     ? grid[0].marks.map((m) => BOSS_SHORT_NAME[m.boss] ?? m.boss)
     : [];
   const bossFullNames = grid.length > 0
     ? grid[0].marks.map((m) => m.boss)
     : [];
-  renderGrid(grid, bossHeaders, { elementId: "completion-grid", nearCompleteThreshold: 4, bossFullNames });
+  renderGrid(grid, bossHeaders, { elementId: "completion-grid", nearCompleteThreshold: 4, bossFullNames, recommendedChars });
 }
 
-function renderTaintedCompletionGrid(grid: TaintedCharacterProgress[]): void {
+function renderTaintedCompletionGrid(grid: TaintedCharacterProgress[], recommendedChars?: Set<string>): void {
   const bossFullNames = grid.length > 0
     ? grid[0].marks.map((m) => m.boss)
     : [];
-  renderGrid(grid, [...TAINTED_BOSS_SHORT_NAMES], { elementId: "tainted-completion-grid", nearCompleteThreshold: 3, bossFullNames });
+  renderGrid(grid, [...TAINTED_BOSS_SHORT_NAMES], { elementId: "tainted-completion-grid", nearCompleteThreshold: 3, bossFullNames, recommendedChars });
 }
 
 const CATEGORY_LABELS: Record<ActionItem["category"], string> = {
@@ -531,7 +563,7 @@ function renderActionPlan(
   const backlog = actionable.filter((item) => item.tier === "backlog");
 
   warningsEl.innerHTML = warnings.length > 0
-    ? `<div class="path-group path-group-warning"><div class="path-group-header">Toxic Item Warnings</div><div class="path-group-cards">${warnings.map((item) => renderActionCard(item, true)).join("")}</div></div>`
+    ? `<section class="warning-lane"><div class="warning-lane-header">Toxic Item Warnings</div><div class="warning-lane-cards">${warnings.map((item) => renderActionCard(item, true)).join("")}</div></section>`
     : "";
 
   if (actionable.length === 0) {
@@ -598,43 +630,68 @@ function renderActionPlan(
   }
 }
 
-function renderChallenges(challenges: ChallengeInfo[]): void {
-  const incomplete = challenges.filter((c) => !c.completed);
+function renderChallenges(challenges: ChallengeInfo[], actionItems: ActionItem[]): void {
+  // Find recommended challenge IDs from tier 1/2 action items
+  const recommendedIds = new Set<number>();
+  for (const item of actionItems) {
+    if (item.category === "challenge" && item.challengeId != null && (item.tier === 1 || item.tier === 2)) {
+      recommendedIds.add(item.challengeId);
+    }
+  }
+
+  const recommended = challenges.filter((c) => !c.completed && recommendedIds.has(c.id));
+  const remainingIncomplete = challenges.filter((c) => !c.completed && !recommendedIds.has(c.id));
   const completed = challenges.filter((c) => c.completed);
 
-  const renderList = (list: ChallengeInfo[], done: boolean) =>
-    list
-      .map((c) => {
-        const rewardHtml = c.reward
-          ? `<span class="reward">Unlocks: ${wikiLink(rewardWikiUrl(c.reward), c.reward)}</span>`
-          : "";
-        const nameLink = wikiLink(challengeWikiUrl(c.name), c.name);
-        const cls = done ? "challenge done" : "challenge";
-        return `<div class="${cls}"><span class="ch-id">#${c.id}</span> ${nameLink} ${rewardHtml}</div>`;
-      })
-      .join("");
+  const renderRow = (c: ChallengeInfo, extra?: string) => {
+    const rewardHtml = c.reward
+      ? `<span class="reward">Unlocks: ${wikiLink(rewardWikiUrl(c.reward), c.reward)}</span>`
+      : "";
+    const nameLink = wikiLink(challengeWikiUrl(c.name), c.name);
+    const status = c.completed ? "completed" : recommendedIds.has(c.id) ? "recommended" : "incomplete";
+    const cls = c.completed ? "challenge-row done" : "challenge-row";
+    const badge = extra ? `<span class="challenge-rec-badge">${extra}</span>` : "";
+    return `<div class="${cls}" data-status="${status}"><span class="ch-id">#${c.id}</span> ${nameLink} ${rewardHtml}${badge}</div>`;
+  };
 
-  $("challenges").innerHTML = `
-    <h3>Incomplete (${incomplete.length})</h3>
-    <div class="challenge-list">${renderList(incomplete, false)}</div>
-    <h3>Completed (${completed.length})</h3>
-    <div class="challenge-list">${renderList(completed, true)}</div>
-  `;
+  let html = "";
+  if (recommended.length > 0) {
+    html += `<h3 data-group="recommended">Recommended (${recommended.length})</h3><div class="challenge-rows" data-group="recommended">${recommended.map((c) => renderRow(c, "Recommended")).join("")}</div>`;
+  }
+  html += `<h3 data-group="incomplete">Incomplete (${remainingIncomplete.length})</h3><div class="challenge-rows" data-group="incomplete">${remainingIncomplete.map((c) => renderRow(c)).join("")}</div>`;
+  if (completed.length > 0) {
+    html += `<details class="challenge-completed-toggle" data-group="completed"><summary>Completed (${completed.length})</summary><div class="challenge-rows">${completed.map((c) => renderRow(c)).join("")}</div></details>`;
+  }
+  $("challenges").innerHTML = html;
 }
 
 function renderCharacterUnlocks(result: AnalysisResult): void {
+  const COLLAPSE_THRESHOLD = 10;
+
+  const renderCharItem = (c: typeof result.baseCharacters[0]) => {
+    const cls = c.unlocked ? "char-unlock unlocked" : "char-unlock locked";
+    const status = c.unlocked ? "unlocked" : "locked";
+    const portrait = charSpritePath(c.name);
+    const portraitHtml = portrait ? `<img src="${portrait}" alt="" class="char-unlock-portrait">` : "";
+    const nameLink = wikiLink(characterWikiUrl(c.name), c.name);
+    const desc = c.unlocked ? "" : `<div class="unlock-how">${c.unlockDescription}</div>`;
+    return `<div class="${cls}" data-status="${status}">${portraitHtml} ${nameLink}${desc}</div>`;
+  };
+
   const renderGroup = (chars: typeof result.baseCharacters, title: string) => {
-    const items = chars
-      .map((c) => {
-        const cls = c.unlocked ? "char-unlock unlocked" : "char-unlock locked";
-        const portrait = charSpritePath(c.name);
-        const portraitHtml = portrait ? `<img src="${portrait}" alt="" class="char-unlock-portrait">` : "";
-        const nameLink = wikiLink(characterWikiUrl(c.name), c.name);
-        const desc = c.unlocked ? "" : `<div class="unlock-how">${c.unlockDescription}</div>`;
-        return `<div class="${cls}">${portraitHtml} ${nameLink}${desc}</div>`;
-      })
-      .join("");
-    return `<h3>${title}</h3><div class="char-list">${items}</div>`;
+    const locked = chars.filter((c) => !c.unlocked);
+    const unlocked = chars.filter((c) => c.unlocked);
+
+    let html = `<h3>${title}</h3>`;
+    if (locked.length > 0) {
+      html += `<h4 class="char-group-label">Locked (${locked.length})</h4><div class="char-list">${locked.map(renderCharItem).join("")}</div>`;
+    }
+    if (unlocked.length > COLLAPSE_THRESHOLD) {
+      html += `<details class="char-unlocked-toggle"><summary>Unlocked (${unlocked.length})</summary><div class="char-list">${unlocked.map(renderCharItem).join("")}</div></details>`;
+    } else if (unlocked.length > 0) {
+      html += `<h4 class="char-group-label">Unlocked (${unlocked.length})</h4><div class="char-list">${unlocked.map(renderCharItem).join("")}</div>`;
+    }
+    return html;
   };
 
   let html = renderGroup(result.baseCharacters, "Base Characters");
@@ -679,9 +736,11 @@ function renderBestiary(result: AnalysisResult): void {
   const enemies = result.bestiary.filter((e) => !e.isBoss);
 
   container.innerHTML = `
-    <p class="bestiary-summary">${result.bestiaryEncountered}/${result.bestiaryTotal} entities encountered (${pct(result.bestiaryEncountered, result.bestiaryTotal)}%)</p>
-    ${renderBestiaryGroup(bosses, "Bosses", false)}
-    ${renderBestiaryGroup(enemies, "Regular Enemies", false)}
+    <details class="bestiary-collapse">
+      <summary class="bestiary-collapse-summary">${result.bestiaryEncountered}/${result.bestiaryTotal} entities encountered (${pct(result.bestiaryEncountered, result.bestiaryTotal)}%) — click to expand</summary>
+      ${renderBestiaryGroup(bosses, "Bosses", false)}
+      ${renderBestiaryGroup(enemies, "Regular Enemies", false)}
+    </details>
   `;
 }
 
@@ -860,9 +919,62 @@ function renderBossKillMilestones(milestones: BossKillMilestoneGroupStatus[]): v
   container.innerHTML = html;
 }
 
+function renderFilterBar(containerId: string, filters: { label: string; value: string }[]): string {
+  return `<div class="filter-bar" data-target="${containerId}">${filters.map((f, i) =>
+    `<button class="filter-btn${i === 0 ? " active" : ""}" data-filter="${f.value}" type="button">${f.label}</button>`
+  ).join("")}</div>`;
+}
+
+function wireFilterBars(): void {
+  document.querySelectorAll<HTMLElement>(".filter-bar").forEach((bar) => {
+    const targetId = bar.dataset.target;
+    if (!targetId) return;
+    const container = document.getElementById(targetId);
+    if (!container) return;
+
+    bar.addEventListener("click", (e) => {
+      const btn = (e.target as HTMLElement).closest<HTMLButtonElement>(".filter-btn");
+      if (!btn) return;
+      bar.querySelectorAll(".filter-btn").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      const filter = btn.dataset.filter ?? "all";
+
+      // Toggle visibility on all items with data-status
+      container.querySelectorAll<HTMLElement>("[data-status]").forEach((el) => {
+        if (filter === "all" || el.dataset.status === filter) {
+          el.classList.remove("filter-hidden");
+        } else {
+          el.classList.add("filter-hidden");
+        }
+      });
+
+      // Toggle visibility on grouped headings/containers (challenges)
+      container.querySelectorAll<HTMLElement>("[data-group]").forEach((el) => {
+        if (filter === "all" || el.dataset.group === filter) {
+          el.classList.remove("filter-hidden");
+        } else {
+          el.classList.add("filter-hidden");
+        }
+      });
+
+      // Toggle character group labels and toggles
+      container.querySelectorAll<HTMLElement>(".char-group-label, .char-unlocked-toggle").forEach((el) => {
+        if (filter === "all") {
+          el.classList.remove("filter-hidden");
+        } else {
+          el.classList.add("filter-hidden");
+        }
+      });
+    });
+  });
+}
+
 export function renderResults(result: AnalysisResult): void {
   $("upload-section").classList.add("collapsed");
   $("results").classList.remove("hidden");
+
+  // Remove any filter bars from a previous render
+  document.querySelectorAll(".filter-bar").forEach((el) => el.remove());
 
   renderDlcBadge(result);
   renderSummary(result);
@@ -870,7 +982,16 @@ export function renderResults(result: AnalysisResult): void {
   renderActionPlan(result.actionItems, result.suppressedItems);
   renderBossKillMilestones(result.bossKillMilestones);
   renderCompletionDashboard(result);
-  renderCompletionGrid(result.completionGrid);
+
+  // Build recommended character set from tier 1/2 action items
+  const recommendedChars = new Set<string>();
+  for (const item of result.actionItems) {
+    if (item.character && (item.tier === 1 || item.tier === 2)) {
+      recommendedChars.add(item.character);
+    }
+  }
+
+  renderCompletionGrid(result.completionGrid, recommendedChars);
 
   // Conditional grid heading: drop "(Base)" when no tainted section
   const gridHeading = document.querySelector("#completion-grid-section h2");
@@ -878,21 +999,73 @@ export function renderResults(result: AnalysisResult): void {
     gridHeading.textContent = result.dlcLevel === "repentance" ? "Completion Marks (Base)" : "Completion Marks";
   }
 
+  // Insert filter bar for base completion grid
+  const gridSection = document.getElementById("completion-grid-section");
+  if (gridSection) {
+    const gridContainer = document.getElementById("completion-grid");
+    if (gridContainer) {
+      gridContainer.insertAdjacentHTML("beforebegin", renderFilterBar("completion-grid", [
+        { label: "All", value: "all" },
+        { label: "Recommended", value: "recommended" },
+        { label: "Incomplete", value: "incomplete" },
+        { label: "Near Complete", value: "near-complete" },
+        { label: "Complete", value: "complete" },
+      ]));
+    }
+  }
+
   // Conditionally show/hide tainted section
   const taintedSection = document.getElementById("tainted-section");
   if (taintedSection) {
     if (result.dlcLevel === "repentance") {
       taintedSection.classList.remove("hidden");
-      renderTaintedCompletionGrid(result.taintedCompletionGrid);
+      renderTaintedCompletionGrid(result.taintedCompletionGrid, recommendedChars);
+      // Insert filter bar for tainted grid
+      const taintedContainer = document.getElementById("tainted-completion-grid");
+      if (taintedContainer) {
+        taintedContainer.insertAdjacentHTML("beforebegin", renderFilterBar("tainted-completion-grid", [
+          { label: "All", value: "all" },
+          { label: "Recommended", value: "recommended" },
+          { label: "Incomplete", value: "incomplete" },
+          { label: "Near Complete", value: "near-complete" },
+          { label: "Complete", value: "complete" },
+        ]));
+      }
     } else {
       taintedSection.classList.add("hidden");
     }
   }
 
-  renderChallenges(result.challenges);
+  renderChallenges(result.challenges, result.actionItems);
+
+  // Insert filter bar for challenges
+  const challengesContainer = document.getElementById("challenges");
+  if (challengesContainer) {
+    challengesContainer.insertAdjacentHTML("beforebegin", renderFilterBar("challenges", [
+      { label: "All", value: "all" },
+      { label: "Recommended", value: "recommended" },
+      { label: "Incomplete", value: "incomplete" },
+      { label: "Completed", value: "completed" },
+    ]));
+  }
+
   renderCharacterUnlocks(result);
+
+  // Insert filter bar for characters
+  const charsContainer = document.getElementById("characters");
+  if (charsContainer) {
+    charsContainer.insertAdjacentHTML("beforebegin", renderFilterBar("characters", [
+      { label: "All", value: "all" },
+      { label: "Locked", value: "locked" },
+      { label: "Unlocked", value: "unlocked" },
+    ]));
+  }
+
   renderBestiary(result);
   renderMissingUnlocks(result.missingUnlocks);
+
+  // Wire all filter bars
+  wireFilterBars();
 }
 
 export function showError(message: string): void {

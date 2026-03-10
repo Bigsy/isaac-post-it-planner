@@ -955,6 +955,35 @@ h3 {
   box-shadow: 0 0 8px rgba(200,168,78,0.2);
 }
 
+/* Progress section — merged Completion + Stats */
+.progress-stats-toggle {
+  margin-top: 1rem;
+}
+.progress-stats-summary {
+  cursor: pointer;
+  color: var(--ink);
+  font-family: "Upheaval", system-ui, sans-serif;
+  font-size: 1rem;
+  letter-spacing: 0.05em;
+  padding: 0.6rem 0.9rem;
+  background: linear-gradient(168deg, rgba(26,26,46,1), rgba(20,20,32,1));
+  border: 1px solid rgba(85,85,104,0.15);
+  border-radius: var(--radius-sm);
+  list-style: none;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.progress-stats-summary::-webkit-details-marker { display: none; }
+.progress-stats-summary::before { content: "\25B8 "; color: var(--pencil); }
+.progress-stats-toggle[open] .progress-stats-summary::before { content: "\25BE "; }
+.progress-stats-summary:hover {
+  color: var(--brass);
+  border-color: rgba(200,168,78,0.2);
+}
+.progress-stats-toggle[open] .progress-stats-summary {
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  margin-bottom: 0.5rem;
+}
+
 /* Detailed stats */
 .overview-panels {
   display: grid;
@@ -1064,7 +1093,13 @@ h3 {
   white-space: nowrap;
   padding-right: 0.5rem !important;
 }
-.done-count { font-weight: 600; color: var(--pencil); }
+.char-done-count {
+  font-weight: 600;
+  font-size: 0.8em;
+  color: var(--pencil);
+  margin-left: 0.4rem;
+  white-space: nowrap;
+}
 
 /* Game sprite global treatment */
 .mark-icon,
@@ -1083,6 +1118,89 @@ h3 {
   height: 24px;
   margin-right: 6px;
 }
+
+/* Filter bar */
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-bottom: 0.75rem;
+}
+.filter-btn {
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid rgba(85,85,104,0.25);
+  background: rgba(42,42,62,0.55);
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.filter-btn:hover {
+  border-color: rgba(200,168,78,0.4);
+  color: var(--brass);
+}
+.filter-btn.active {
+  background: linear-gradient(168deg, rgba(200,168,78,0.2), rgba(175,140,50,0.15));
+  border-color: rgba(200,168,78,0.5);
+  color: var(--brass);
+}
+
+/* Filter visibility — JS-toggled class */
+.filter-hidden { display: none !important; }
+
+/* Desktop/mobile toggle helpers */
+.mobile-only { display: none; }
+.desktop-only { display: block; }
+
+/* Mobile character cards for completion grids */
+.mobile-char-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.mobile-char-card {
+  background: var(--card-bg);
+  border: 1px solid rgba(85,85,104,0.2);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.75rem;
+}
+.mobile-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-weight: 600;
+  margin-bottom: 0.3rem;
+}
+.mobile-card-header .char-portrait {
+  width: 32px;
+  height: 32px;
+}
+.mobile-card-missing {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-top: 0.35rem;
+}
+.mobile-mark {
+  display: inline-flex;
+  align-items: center;
+}
+.mobile-mark .mark-icon {
+  width: 24px;
+  height: 24px;
+  filter: saturate(0.25) brightness(0.5) opacity(0.7);
+}
+.mobile-card-complete {
+  color: var(--mold);
+  font-size: 0.85rem;
+  margin-top: 0.25rem;
+}
+.mobile-char-card .progress-bar { margin-top: 0.25rem; height: 6px; }
 
 /* Completion mark icons — pre-scaled 32×32 (2× of 16px source) */
 .mark-icon {
@@ -1400,6 +1518,32 @@ tr.complete .char-name { color: var(--mold); text-shadow: 0 0 8px rgba(76,175,80
 }
 
 /* Characters */
+.char-group-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--pencil);
+  margin: 0.6rem 0 0.3rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.char-unlocked-toggle { margin-top: 0.5rem; }
+.char-unlocked-toggle summary {
+  cursor: pointer;
+  color: var(--pencil);
+  font-weight: 600;
+  font-size: 0.95rem;
+  padding: 0.5rem 0.75rem;
+  background: linear-gradient(168deg, rgba(26,26,46,1), rgba(20,20,32,1));
+  border: 1px solid rgba(85,85,104,0.15);
+  border-radius: var(--radius-sm);
+  list-style: none;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.char-unlocked-toggle summary::-webkit-details-marker { display: none; }
+.char-unlocked-toggle summary::before { content: "\25B8 "; color: var(--pencil); }
+.char-unlocked-toggle[open] summary::before { content: "\25BE "; }
+.char-unlocked-toggle summary:hover { color: var(--brass); border-color: rgba(200,168,78,0.2); }
+.char-unlocked-toggle[open] summary { border-radius: var(--radius-sm) var(--radius-sm) 0 0; margin-bottom: 0.35rem; }
 .char-list { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .char-unlock {
   background: var(--card-bg);
@@ -1421,6 +1565,56 @@ tr.complete .char-name { color: var(--mold); text-shadow: 0 0 8px rgba(76,175,80
 .unlock-how { font-size: 0.85rem; color: var(--pencil); margin-top: 0.15rem; }
 
 /* Challenges */
+.challenge-rows { display: flex; flex-direction: column; gap: 0.25rem; }
+.challenge-row {
+  background: var(--card-bg);
+  border: 1px solid rgba(85,85,104,0.15);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.88rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: border-color 0.2s;
+}
+.challenge-row:hover {
+  border-color: rgba(200,168,78,0.2);
+}
+.challenge-row:not(.done) { border-left: 2px solid rgba(155,89,182,0.4); }
+.challenge-row.done { opacity: 0.45; border-left: 2px solid rgba(76,175,80,0.3); }
+.challenge-rec-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--brass);
+  border: 1px solid rgba(200,168,78,0.35);
+  border-radius: 999px;
+  padding: 0.1rem 0.45rem;
+  margin-left: auto;
+  white-space: nowrap;
+}
+.challenge-completed-toggle { margin-top: 0.5rem; }
+.challenge-completed-toggle summary {
+  cursor: pointer;
+  color: var(--pencil);
+  font-weight: 600;
+  font-size: 0.95rem;
+  padding: 0.5rem 0.75rem;
+  background: linear-gradient(168deg, rgba(26,26,46,1), rgba(20,20,32,1));
+  border: 1px solid rgba(85,85,104,0.15);
+  border-radius: var(--radius-sm);
+  list-style: none;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.challenge-completed-toggle summary::-webkit-details-marker { display: none; }
+.challenge-completed-toggle summary::before { content: "\25B8 "; color: var(--pencil); }
+.challenge-completed-toggle[open] summary::before { content: "\25BE "; }
+.challenge-completed-toggle summary:hover { color: var(--brass); border-color: rgba(200,168,78,0.2); }
+.challenge-completed-toggle[open] summary { border-radius: var(--radius-sm) var(--radius-sm) 0 0; margin-bottom: 0.25rem; }
+.ch-id { color: var(--pencil); font-size: 0.85em; }
+.reward { color: var(--brass); font-size: 0.85em; margin-left: 0.3rem; }
+/* Legacy chip layout (kept for compat) */
 .challenge-list { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 .challenge {
   background: var(--card-bg);
@@ -1436,12 +1630,22 @@ tr.complete .char-name { color: var(--mold); text-shadow: 0 0 8px rgba(76,175,80
 }
 .challenge:not(.done) { border-left: 2px solid rgba(155,89,182,0.4); }
 .challenge.done { opacity: 0.45; border-left: 2px solid rgba(76,175,80,0.3); }
-.ch-id { color: var(--pencil); font-size: 0.85em; }
-.reward { color: var(--brass); font-size: 0.85em; margin-left: 0.3rem; }
 
 .empty { color: var(--pencil); font-style: italic; }
 
 /* Bestiary */
+.bestiary-collapse-summary {
+  cursor: pointer;
+  color: var(--pencil);
+  font-size: 0.9rem;
+  padding: 0.5rem 0;
+  list-style: none;
+}
+.bestiary-collapse-summary::-webkit-details-marker { display: none; }
+.bestiary-collapse-summary::before { content: "\25B8 "; color: var(--pencil); }
+.bestiary-collapse[open] .bestiary-collapse-summary::before { content: "\25BE "; }
+.bestiary-collapse-summary:hover { color: var(--brass); }
+.bestiary-collapse[open] .bestiary-collapse-summary { margin-bottom: 0.5rem; }
 .bestiary-summary { color: var(--pencil); margin-bottom: 0.75rem; }
 .bestiary-group { margin-top: 0.5rem; }
 .bestiary-group summary {
@@ -1665,7 +1869,7 @@ footer {
     gap: 0.85rem;
   }
   #results > section,
-  #overview-section,
+  #progress-section,
   #boss-milestones-section,
   #challenges-section,
   #characters-section {
@@ -1736,6 +1940,8 @@ footer {
   .run-why {
     padding-left: 0;
   }
+  .desktop-only { display: none !important; }
+  .mobile-only { display: block !important; }
 }
 
 /* Reduced motion */
@@ -1864,7 +2070,12 @@ footer {
 }
 
 /* Toxic warning */
-.rec-card.toxic-warning { border-left-color: var(--dried-blood); }
+.rec-card.toxic-warning {
+  border-left-color: var(--dried-blood);
+  background:
+    linear-gradient(90deg, rgba(122, 27, 27, 0.1), rgba(122, 27, 27, 0.02) 42%, transparent 100%),
+    var(--card-bg);
+}
 
 /* Path containers */
 .path-group {
@@ -1890,20 +2101,26 @@ footer {
   height: 1px;
   background: linear-gradient(90deg, var(--brass), rgba(85,85,104,0.3) 40%, transparent 80%);
 }
-.path-group-warning {
-  padding: 0.8rem 1rem 1rem;
-  border: 1px solid color-mix(in srgb, var(--dried-blood) 75%, transparent);
-  border-radius: var(--radius-md);
-  background:
-    linear-gradient(180deg, rgba(122, 27, 27, 0.08), rgba(122, 27, 27, 0.02)),
-    linear-gradient(168deg, rgba(26,26,46,0.98), rgba(20,20,32,0.98));
+.warning-lane {
+  margin-bottom: 1.25rem;
 }
-.path-group-warning .path-group-header {
+.warning-lane-header {
+  font-family: "Upheaval", system-ui, sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
   color: var(--wound);
   margin-bottom: 0.6rem;
 }
-.path-group-warning .path-group-header::after {
+.warning-lane-header::after {
+  content: "";
+  display: block;
+  margin-top: 0.35rem;
+  height: 1px;
   background: linear-gradient(90deg, var(--dried-blood), rgba(122,27,27,0.3) 40%, transparent 80%);
+}
+.warning-lane-cards {
+  display: grid;
+  gap: 0.65rem;
 }
 
 @media (min-width: 1100px) {
