@@ -922,6 +922,7 @@ export function laneRecommendationToActionItem(rec: LaneRecommendation): ActionI
     itemQuality: rec.itemQuality,
     itemName: rec.itemName,
     isToxicWarning: rec.isToxicWarning,
+    challengeId: rec.challengeId,
     links: rec.links,
     scoreBreakdown: rec.scoreBreakdown,
   };

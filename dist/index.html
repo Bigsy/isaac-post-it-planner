@@ -37,9 +37,7 @@
       <nav class="results-nav" aria-label="Results Sections">
         <a href="#summary-section">Summary</a>
         <a href="#path-section">Play Next</a>
-        <a href="#completion-dashboard-section">Completion</a>
-        <a href="#overview-section">Stats</a>
-        <a href="#challenges-section">Challenges</a>
+        <a href="#progress-section">Progress</a>
         <a href="#characters-section">Characters</a>
         <a href="#missing-unlocks-section">Missing Unlocks</a>
         <button id="nav-reupload" class="nav-action" type="button">Load another save</button>
@@ -63,14 +61,13 @@
         <div id="boss-milestones"></div>
       </section>
 
-      <section id="completion-dashboard-section">
-        <h2>Completion Breakdown</h2>
+      <section id="progress-section">
+        <h2>Progress</h2>
         <div id="completion-dashboard"></div>
-      </section>
-
-      <section id="overview-section">
-        <h2>Detailed Stats</h2>
-        <div id="overview"></div>
+        <details class="progress-stats-toggle" open>
+          <summary class="progress-stats-summary">Detailed Stats</summary>
+          <div id="overview"></div>
+        </details>
       </section>
 
       <section id="completion-grid-section">
@@ -93,14 +90,14 @@
         <div id="characters"></div>
       </section>
 
-      <section id="bestiary-section" class="hidden">
-        <h2>Bestiary</h2>
-        <div id="bestiary"></div>
-      </section>
-
       <section id="missing-unlocks-section">
         <h2>Missing Unlocks</h2>
         <div id="missing-unlocks"></div>
+      </section>
+
+      <section id="bestiary-section" class="hidden">
+        <h2>Bestiary</h2>
+        <div id="bestiary"></div>
       </section>
     </div>
   </main>

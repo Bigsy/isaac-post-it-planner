@@ -1154,7 +1154,7 @@ h3 {
 .filter-hidden { display: none !important; }
 
 /* Desktop/mobile toggle helpers */
-.mobile-only { display: none; }
+.mobile-only { display: none !important; }
 .desktop-only { display: block; }
 
 /* Mobile character cards for completion grids */
@@ -1942,6 +1942,7 @@ footer {
   }
   .desktop-only { display: none !important; }
   .mobile-only { display: block !important; }
+  .mobile-char-cards { display: flex !important; }
 }
 
 /* Reduced motion */

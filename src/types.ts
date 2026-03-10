@@ -248,6 +248,7 @@ export interface ActionItem {
   itemQuality?: ItemQuality;
   itemName?: string;
   isToxicWarning?: boolean;
+  challengeId?: number;
   links?: { text: string; url: string }[];
   scoreBreakdown?: ScoreBreakdown;
 }
