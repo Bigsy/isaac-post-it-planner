@@ -21,7 +21,7 @@ import {
 } from "../src/data/tainted-marks";
 import { CHALLENGE_NAMES, CHALLENGE_REWARDS } from "../src/data/challenges";
 
-const WIKI_BASE = "https://bindingofisaacrebirth.fandom.com/wiki/";
+const WIKI_BASE = "https://bindingofisaacrebirth.wiki.gg/wiki/";
 
 describe("wikiUrl", () => {
   it("replaces spaces with underscores", () => {
@@ -59,9 +59,9 @@ describe("bossWikiUrl", () => {
     expect(bossWikiUrl("Heart")).toBe(WIKI_BASE + "Mom%27s_Heart");
     expect(bossWikiUrl("BB")).toBe(WIKI_BASE + "%3F%3F%3F_(Boss)");
     expect(bossWikiUrl("MSat")).toBe(WIKI_BASE + "Mega_Satan");
-    expect(bossWikiUrl("Deli")).toBe(WIKI_BASE + "Delirium_(Boss)");
+    expect(bossWikiUrl("Deli")).toBe(WIKI_BASE + "Delirium");
     expect(bossWikiUrl("Rush")).toBe(WIKI_BASE + "Boss_Rush");
-    expect(bossWikiUrl("Mom2")).toBe(WIKI_BASE + "Mother_(Boss)");
+    expect(bossWikiUrl("Mom2")).toBe(WIKI_BASE + "Mother");
     expect(bossWikiUrl("Grd+")).toBe(WIKI_BASE + "Greedier");
   });
 
@@ -69,8 +69,8 @@ describe("bossWikiUrl", () => {
     expect(bossWikiUrl("Mom's Heart")).toBe(WIKI_BASE + "Mom%27s_Heart");
     expect(bossWikiUrl("???")).toBe(WIKI_BASE + "%3F%3F%3F_(Boss)");
     expect(bossWikiUrl("Mega Satan")).toBe(WIKI_BASE + "Mega_Satan");
-    expect(bossWikiUrl("Delirium")).toBe(WIKI_BASE + "Delirium_(Boss)");
-    expect(bossWikiUrl("Mother")).toBe(WIKI_BASE + "Mother_(Boss)");
+    expect(bossWikiUrl("Delirium")).toBe(WIKI_BASE + "Delirium");
+    expect(bossWikiUrl("Mother")).toBe(WIKI_BASE + "Mother");
   });
 
   it("returns null for bundled tainted categories", () => {
@@ -102,12 +102,12 @@ describe("characterWikiUrl", () => {
     expect(characterWikiUrl("T.Isaac")).toBe(WIKI_BASE + "Tainted_Isaac");
     expect(characterWikiUrl("T.Magdalene")).toBe(WIKI_BASE + "Tainted_Magdalene");
     expect(characterWikiUrl("T.???")).toBe(
-      WIKI_BASE + "Tainted_%3F%3F%3F_(Character)",
+      WIKI_BASE + "Tainted_%3F%3F%3F",
     );
-    expect(characterWikiUrl("T.Lost")).toBe(WIKI_BASE + "Tainted_The_Lost");
+    expect(characterWikiUrl("T.Lost")).toBe(WIKI_BASE + "Tainted_Lost");
     expect(characterWikiUrl("T.Forgotten")).toBe(WIKI_BASE + "Tainted_Forgotten");
     expect(characterWikiUrl("T.Jacob")).toBe(
-      WIKI_BASE + "Tainted_Jacob_and_Esau",
+      WIKI_BASE + "Tainted_Jacob",
     );
   });
 

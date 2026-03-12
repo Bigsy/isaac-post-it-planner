@@ -1,7 +1,7 @@
 import { BOSS_SHORT_NAMES, BOSS_NAMES } from "./characters";
 import { TAINTED_BOSS_SHORT_NAMES, TAINTED_BOSS_NAMES } from "./tainted-marks";
 
-const WIKI_BASE = "https://bindingofisaacrebirth.fandom.com/wiki/";
+const WIKI_BASE = "https://bindingofisaacrebirth.wiki.gg/wiki/";
 
 /** Convert a name to a wiki URL path segment */
 function wikiPath(name: string): string {
@@ -26,8 +26,8 @@ const BOSS_NAME_OVERRIDES: Partial<Record<string, string | null>> = {
   "???": "%3F%3F%3F_(Boss)",
   "Boss Rush": "Boss_Rush",
   "Mega Satan": "Mega_Satan",
-  "Delirium": "Delirium_(Boss)",
-  "Mother": "Mother_(Boss)",
+  "Delirium": "Delirium",
+  "Mother": "Mother",
   // Boss kill milestone keys (from boss-milestones.ts bossName field)
   "momsHeart": "Mom%27s_Heart",
   "isaac": "Isaac_(Boss)",
@@ -41,17 +41,17 @@ const BOSS_SHORT_OVERRIDES: Partial<Record<string, string | null>> = {
   BB: "%3F%3F%3F_(Boss)",
   Rush: "Boss_Rush",
   MSat: "Mega_Satan",
-  Deli: "Delirium_(Boss)",
-  Mom2: "Mother_(Boss)",
+  Deli: "Delirium",
+  Mom2: "Mother",
   "Grd+": "Greedier",
 };
 
 /** Maps TAINTED_BOSS_SHORT_NAMES to wiki page paths (null = skip) */
 const TAINTED_BOSS_SHORT_OVERRIDES: Partial<Record<string, string | null>> = {
   Main: null,
-  Mom2: "Mother_(Boss)",
+  Mom2: "Mother",
   "Grd+": "Greedier",
-  Deli: "Delirium_(Boss)",
+  Deli: "Delirium",
   MSat: "Mega_Satan",
   "H+BR": null,
 };
@@ -60,9 +60,9 @@ const TAINTED_BOSS_SHORT_OVERRIDES: Partial<Record<string, string | null>> = {
 const TAINTED_BOSS_NAME_OVERRIDES: Partial<Record<string, string | null>> = {
   "Main Bosses": null,
   "Ultra Greedier": "Greedier",
-  "Delirium": "Delirium_(Boss)",
+  "Delirium": "Delirium",
   "Mega Satan": "Mega_Satan",
-  "Mother": "Mother_(Boss)",
+  "Mother": "Mother",
   "Hush + Boss Rush": null,
 };
 
@@ -103,19 +103,19 @@ const CHARACTER_OVERRIDES: Record<string, string> = {
   "T.Magdalene": "Tainted_Magdalene",
   "T.Cain": "Tainted_Cain",
   "T.Judas": "Tainted_Judas",
-  "T.???": "Tainted_%3F%3F%3F_(Character)",
+  "T.???": "Tainted_%3F%3F%3F",
   "T.Eve": "Tainted_Eve",
   "T.Samson": "Tainted_Samson",
   "T.Azazel": "Tainted_Azazel",
   "T.Lazarus": "Tainted_Lazarus",
   "T.Eden": "Tainted_Eden",
-  "T.Lost": "Tainted_The_Lost",
+  "T.Lost": "Tainted_Lost",
   "T.Lilith": "Tainted_Lilith",
   "T.Keeper": "Tainted_Keeper",
   "T.Apollyon": "Tainted_Apollyon",
   "T.Forgotten": "Tainted_Forgotten",
   "T.Bethany": "Tainted_Bethany",
-  "T.Jacob": "Tainted_Jacob_and_Esau",
+  "T.Jacob": "Tainted_Jacob",
 };
 
 export function characterWikiUrl(name: string): string {
@@ -189,10 +189,10 @@ export function achievementWikiUrl(name: string): string | null {
 const BESTIARY_OVERRIDES: Record<string, string> = {
   "Isaac": "Isaac_(Boss)",
   "???": "%3F%3F%3F_(Boss)",
-  "Delirium": "Delirium_(Boss)",
-  "Mother": "Mother_(Boss)",
-  "Greed": "Greed_(Mini-Boss)",
-  "Super Greed": "Super_Greed_(Mini-Boss)",
+  "Delirium": "Delirium",
+  "Mother": "Mother",
+  "Greed": "Greed",
+  "Super Greed": "Super_Greed",
 };
 
 export function bestiaryWikiUrl(name: string): string {
