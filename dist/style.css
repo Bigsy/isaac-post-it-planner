@@ -1691,6 +1691,97 @@ tr.complete .char-name { color: var(--mold); text-shadow: 0 0 8px rgba(76,175,80
 .bestiary-table tr.not-encountered td { color: var(--shadow); }
 .bestiary-table tr.not-encountered td:first-child { color: var(--pencil); }
 
+/* Greed Donation Machine */
+.greed-machine-summary {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.55rem;
+  color: var(--pencil);
+  font-size: 0.88rem;
+}
+.greed-machine-total {
+  display: block;
+  color: var(--brass);
+  font-family: "Upheaval", system-ui, sans-serif;
+  font-size: 1.55rem;
+  line-height: 1;
+}
+.greed-machine-total-label { display: block; margin-top: 0.25rem; }
+.greed-machine-progress {
+  height: 7px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+  border-radius: 999px;
+  background: rgba(85,85,104,0.28);
+}
+.greed-machine-progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #9b6b22, var(--brass));
+}
+.greed-machine-groups {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+  align-items: start;
+}
+.greed-machine-group summary {
+  cursor: pointer;
+  padding: 0.6rem 0.9rem;
+  color: var(--ink);
+  font-weight: 600;
+  list-style: none;
+  border: 1px solid rgba(85,85,104,0.2);
+  border-radius: var(--radius-sm);
+  background: linear-gradient(168deg, rgba(26,26,46,1), rgba(20,20,32,1));
+}
+.greed-machine-group summary::-webkit-details-marker { display: none; }
+.greed-machine-group summary::before { content: "\25B8  "; color: var(--pencil); }
+.greed-machine-group[open] summary::before { content: "\25BE  "; }
+.greed-machine-group[open] summary { border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
+.greed-table-scroll { overflow-x: auto; }
+.greed-machine-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+}
+.greed-machine-table th {
+  padding: 0.45rem 0.5rem;
+  color: var(--pencil);
+  background: var(--parchment);
+  text-align: right;
+  white-space: nowrap;
+}
+.greed-machine-table th:first-child { text-align: left; }
+.greed-machine-table td {
+  padding: 0.38rem 0.5rem;
+  text-align: right;
+  border-bottom: 1px solid rgba(85,85,104,0.3);
+}
+.greed-machine-table td:first-child { text-align: left; font-weight: 600; white-space: nowrap; }
+.greed-character { display: inline-flex; align-items: center; gap: 0.4rem; }
+.greed-character-portrait {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+.jam-badge {
+  display: inline-block;
+  min-width: 2.3rem;
+  padding: 0.12rem 0.38rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-weight: 700;
+  text-align: center;
+}
+.jam-safe { color: var(--mold); }
+.jam-low { color: var(--brass); }
+.jam-medium { color: #df8c3f; }
+.jam-high { color: var(--wound); }
+
 /* Missing Unlocks */
 .unlock-category { margin-top: 0.5rem; }
 .unlock-category summary {
@@ -1882,6 +1973,7 @@ footer {
   .overview-panels {
     grid-template-columns: 1fr;
   }
+  .greed-machine-groups { grid-template-columns: 1fr; }
 }
 
 /* Responsive */

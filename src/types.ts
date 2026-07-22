@@ -158,6 +158,15 @@ export interface CounterStats {
   bestStreak: number;
 }
 
+/** Per-character Greed Donation Machine history and current per-coin jam odds. */
+export interface GreedMachineCharacterStat {
+  character: string;
+  isTainted: boolean;
+  coinsDonated: number;
+  greedJamChance: number;
+  greedierJamChance: number;
+}
+
 export type AchievementCategory =
   | "items" | "characters" | "challenges" | "co-op-babies"
   | "starting-items" | "cards-runes" | "stages-bosses" | "milestones";
@@ -284,6 +293,7 @@ export interface AnalysisResult {
   collectiblesSeen: number;
   totalCollectibles: number;
   stats: CounterStats;
+  greedMachineStats: GreedMachineCharacterStat[];
   baseCharacters: CharacterUnlock[];
   taintedCharacters: CharacterUnlock[];
   completionGrid: CharacterProgress[];

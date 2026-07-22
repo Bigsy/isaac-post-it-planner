@@ -57,7 +57,18 @@ describe("integration: full pipeline with sample save", () => {
     // Stats
     expect(result.stats.deaths).toBeGreaterThan(0);
     expect(result.stats.momKills).toBeGreaterThan(0);
-    expect(result.stats.normalDonationCoins).toBe(51);
+    expect(result.stats.greedDonationCoins).toBe(2);
+    expect(result.stats.normalDonationCoins).toBe(0);
+    expect(result.stats.edenTokens).toBe(51);
+
+    // Per-character Greed donations reconcile to the overall machine total.
+    expect(result.greedMachineStats).toHaveLength(34);
+    expect(result.greedMachineStats.find((stat) => stat.character === "Isaac")).toMatchObject({
+      coinsDonated: 2,
+      greedJamChance: 0,
+      greedierJamChance: 0,
+    });
+    expect(result.greedMachineStats.reduce((sum, stat) => sum + stat.coinsDonated, 0)).toBe(2);
 
     // Character unlock states
     const lockedBase = result.baseCharacters.filter((c) => !c.unlocked);
@@ -217,7 +228,9 @@ describe("integration: recommendation ordering", () => {
     const indexOf = (target: string) => actionable.findIndex((item) => item.headline === target);
 
     const polaroid = indexOf("Defeat Isaac 5 times");
-    const greedStart = indexOf("Start Greed Mode — rotate characters to build donation machine");
+    const greedStart = actionable.findIndex(
+      (item) => item.category === "donation" && item.headline.includes("rotate characters"),
+    );
     const waka = indexOf("Complete #17 Waka Waka — unlocks Death's Touch");
 
     expect(polaroid).toBeGreaterThanOrEqual(0);

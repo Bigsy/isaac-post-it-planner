@@ -9,6 +9,7 @@ import type {
   CharacterProgress,
   CharacterUnlock,
   CounterStats,
+  GreedMachineCharacterStat,
   SaveData,
   SuppressedItem,
   TaintedCharacterProgress,
@@ -28,6 +29,12 @@ import { BESTIARY_ENTITIES, BESTIARY_TOTAL } from "./data/bestiary";
 import { analyzeMissingUnlocks } from "./data/achievement-categories";
 import { detectPhase, PHASE_DEFINITIONS, dlcAtLeast } from "./data/phases";
 import { BOSS_KILL_MILESTONE_GROUPS } from "./data/boss-milestones";
+import {
+  greedDonationCounters,
+  greedDonationTotalCounter,
+  greedierJamChance,
+  greedJamChance,
+} from "./data/greed-machine";
 import { achievementWikiUrl } from "./data/wiki";
 import { buildRunPlans, toActionItems as runPlansToActionItems } from "./run-planner";
 import {
@@ -81,8 +88,9 @@ function countCollectiblesSeen(collectibles: number[]): { seen: number; total: n
   return { seen, total };
 }
 
-function parseCounterStats(counters: number[]): CounterStats {
+function parseCounterStats(counters: number[], dlcLevel: DlcLevel): CounterStats {
   const get = (i: number) => (i < counters.length ? counters[i] : 0);
+  const greedCounter = greedDonationTotalCounter(dlcLevel);
   return {
     momKills: get(1),
     deaths: get(9),
@@ -91,12 +99,29 @@ function parseCounterStats(counters: number[]): CounterStats {
     tintedRocksDestroyed: get(3),
     poopDestroyed: get(5),
     shopkeeperKills: get(11),
-    greedDonationCoins: get(19),
-    normalDonationCoins: get(20),
-    edenTokens: get(21),
+    greedDonationCoins: greedCounter == null ? 0 : get(greedCounter),
+    normalDonationCoins: get(19),
+    edenTokens: get(20),
     winStreak: get(22),
     bestStreak: get(23),
   };
+}
+
+function analyzeGreedMachineStats(
+  counters: number[],
+  dlcLevel: DlcLevel,
+  maxAchievementId: number,
+): GreedMachineCharacterStat[] {
+  return greedDonationCounters(dlcLevel, maxAchievementId).map(({ character, counterIndex, isTainted }) => {
+    const coinsDonated = Math.max(0, counters[counterIndex] ?? 0);
+    return {
+      character,
+      isTainted,
+      coinsDonated,
+      greedJamChance: greedJamChance(coinsDonated),
+      greedierJamChance: greedierJamChance(coinsDonated),
+    };
+  });
 }
 
 function analyzePhaseProgress(
@@ -437,10 +462,11 @@ function stripDebug(items: ActionItem[]): ActionItem[] {
 export function analyze(saveData: SaveData, options: AnalyzeOptions = {}): AnalysisResult {
   const maxAchId = Math.max(0, Math.min(saveData.achievements.length - 1, TOTAL_ACHIEVEMENTS));
   const unlocked = getUnlockedIds(saveData.achievements, maxAchId);
-  const stats = parseCounterStats(saveData.counters);
+  const stats = parseCounterStats(saveData.counters, saveData.dlcLevel);
   const { seen: collectiblesSeen, total: totalCollectibles } = countCollectiblesSeen(saveData.collectibles);
   const dlcLevel = saveData.dlcLevel;
   const isRepentance = dlcLevel === "repentance";
+  const greedMachineStats = analyzeGreedMachineStats(saveData.counters, dlcLevel, maxAchId);
 
   const filteredBase = Object.fromEntries(
     Object.entries(BASE_CHARACTER_UNLOCKS).filter(([id]) => Number(id) <= maxAchId),
@@ -515,6 +541,7 @@ export function analyze(saveData: SaveData, options: AnalyzeOptions = {}): Analy
     collectiblesSeen,
     totalCollectibles,
     stats,
+    greedMachineStats,
     baseCharacters,
     taintedCharacters,
     completionGrid,
@@ -535,6 +562,7 @@ export {
   analyzeBestiary,
   analyzeBossKillMilestones,
   analyzeChallenges,
+  analyzeGreedMachineStats,
   analyzeCharacterUnlocks,
   assignTiers,
   analyzeCompletionMarks,

@@ -5,6 +5,7 @@ import type {
   BestiaryEntry,
   CharacterProgress,
   ChallengeInfo,
+  GreedMachineCharacterStat,
   MissingUnlocksResult,
   PhaseProgress,
   RunGoal,
@@ -701,6 +702,92 @@ function renderCharacterUnlocks(result: AnalysisResult): void {
   $("characters").innerHTML = html;
 }
 
+function renderGreedMachineGroup(stats: GreedMachineCharacterStat[], label: string): string {
+  if (stats.length === 0) return "";
+
+  const rows = stats.map((stat) => {
+    const portrait = charSpritePath(stat.character);
+    const portraitHtml = portrait ? `<img src="${portrait}" alt="" class="greed-character-portrait">` : "";
+    const nameHtml = wikiLink(characterWikiUrl(stat.character), stat.character);
+    const severity = stat.greedJamChance === 0
+      ? "safe"
+      : stat.greedJamChance <= 5
+        ? "low"
+        : stat.greedJamChance <= 10
+          ? "medium"
+          : "high";
+    return `
+      <tr>
+        <td><span class="greed-character">${portraitHtml}${nameHtml}</span></td>
+        <td>${stat.coinsDonated.toLocaleString()}</td>
+        <td><span class="jam-badge jam-${severity}">${stat.greedJamChance}%</span></td>
+        <td><span class="jam-badge jam-${stat.greedierJamChance === 0 ? "safe" : "low"}">${stat.greedierJamChance}%</span></td>
+      </tr>`;
+  }).join("");
+
+  return `
+    <details class="greed-machine-group" open>
+      <summary>${label} (${stats.length})</summary>
+      <div class="greed-table-scroll">
+        <table class="greed-machine-table">
+          <thead><tr><th>Character</th><th>Coins</th><th>Greed</th><th>Greedier</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </details>`;
+}
+
+function renderGreedMachine(result: AnalysisResult): void {
+  const section = document.getElementById("greed-machine-section");
+  const container = document.getElementById("greed-machine");
+  if (!section || !container) return;
+
+  if (result.greedMachineStats.length === 0) {
+    section.classList.add("hidden");
+    return;
+  }
+
+  section.classList.remove("hidden");
+  const baseStats = result.greedMachineStats.filter((stat) => !stat.isTainted);
+  const taintedStats = result.greedMachineStats.filter((stat) => stat.isTainted);
+  const total = result.stats.greedDonationCoins;
+  const machineProgress = Math.min(100, Math.max(0, total / 10));
+  const unlockedCharacters = new Set<string>(["Isaac"]);
+  for (const character of result.baseCharacters) {
+    if (!character.unlocked) continue;
+    unlockedCharacters.add(character.name === "The Forgotten"
+      ? "Forgotten"
+      : character.name === "Jacob & Esau"
+        ? "Jacob"
+        : character.name);
+  }
+  for (const character of result.taintedCharacters) {
+    if (character.unlocked) unlockedCharacters.add(character.name);
+  }
+  const safest = result.greedMachineStats
+    .filter((stat) => stat.greedJamChance === 0 && unlockedCharacters.has(stat.character))
+    .sort((a, b) => a.coinsDonated - b.coinsDonated)[0];
+  const safestHtml = safest
+    ? `<span>Safest next donor: ${wikiLink(characterWikiUrl(safest.character), safest.character)} (${safest.coinsDonated} coins)</span>`
+    : "";
+
+  container.innerHTML = `
+    <div class="greed-machine-summary">
+      <div>
+        <span class="greed-machine-total">${total.toLocaleString()} / 1,000</span>
+        <span class="greed-machine-total-label">total machine donations</span>
+      </div>
+      ${safestHtml}
+    </div>
+    <div class="greed-machine-progress" role="progressbar" aria-label="Greed Donation Machine progress" aria-valuemin="0" aria-valuemax="1000" aria-valuenow="${Math.min(1000, Math.max(0, total))}">
+      <div class="greed-machine-progress-fill" style="width:${machineProgress}%"></div>
+    </div>
+    <div class="greed-machine-groups">
+      ${renderGreedMachineGroup(baseStats, "Base Characters")}
+      ${renderGreedMachineGroup(taintedStats, "Tainted Characters")}
+    </div>`;
+}
+
 function renderBestiaryGroup(entries: BestiaryEntry[], label: string, open: boolean): string {
   if (entries.length === 0) return "";
   const encountered = entries.filter((e) => e.encountered > 0).length;
@@ -979,6 +1066,7 @@ export function renderResults(result: AnalysisResult): void {
   renderDlcBadge(result);
   renderSummary(result);
   renderOverview(result);
+  renderGreedMachine(result);
   renderActionPlan(result.actionItems, result.suppressedItems);
   renderBossKillMilestones(result.bossKillMilestones);
   renderCompletionDashboard(result);

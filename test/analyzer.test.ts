@@ -10,6 +10,7 @@ import {
   analyzeTaintedCompletionMarks,
   analyzeChallenges,
   analyzeBestiary,
+  analyzeGreedMachineStats,
   generateLaneRecommendations,
   evaluateProgressionGates,
   evaluateCharacterUnlocks,
@@ -18,6 +19,7 @@ import {
   evaluateDonation,
   evaluateGuardrails,
 } from "../src/analyzer";
+import { greedierJamChance, greedJamChance } from "../src/data/greed-machine";
 import type { CounterStats, BestiaryData, PhaseProgress } from "../src/types";
 import { BESTIARY_ENTITIES, BESTIARY_TOTAL } from "../src/data/bestiary";
 import type { ProgressionPhase } from "../src/data/phases";
@@ -91,6 +93,52 @@ describe("countCollectiblesSeen", () => {
     const result = countCollectiblesSeen([0, 1, 2, 3]);
     expect(result.seen).toBe(3);
     expect(result.total).toBe(3);
+  });
+});
+
+describe("Greed Donation Machine stats", () => {
+  it.each([
+    [0, 0],
+    [54, 0],
+    [55, 1],
+    [93, 1],
+    [94, 2],
+    [121, 3],
+    [150, 6],
+    [200, 20],
+    [500, 20],
+  ])("calculates %d donated coins as %d%% Greed jam chance", (coins, chance) => {
+    expect(greedJamChance(coins)).toBe(chance);
+  });
+
+  it("caps Greedier at 1%", () => {
+    expect(greedierJamChance(54)).toBe(0);
+    expect(greedierJamChance(55)).toBe(1);
+    expect(greedierJamChance(200)).toBe(1);
+  });
+
+  it("uses the compact Afterbirth counter layout", () => {
+    const counters = Array(162).fill(0);
+    counters[149] = 55;
+    counters[161] = 200;
+    const stats = analyzeGreedMachineStats(counters, "afterbirth", 276);
+    expect(stats).toHaveLength(13);
+    expect(stats[0]).toMatchObject({ character: "Isaac", coinsDonated: 55, greedJamChance: 1 });
+    expect(stats[12]).toMatchObject({ character: "Keeper", coinsDonated: 200, greedJamChance: 20 });
+  });
+
+  it("includes every base and tainted character for Repentance", () => {
+    const counters = Array(523).fill(0);
+    counters[159] = 121;
+    counters[403] = 59;
+    const stats = analyzeGreedMachineStats(counters, "repentance", 637);
+    expect(stats).toHaveLength(34);
+    expect(stats.find((stat) => stat.character === "Isaac")).toMatchObject({ coinsDonated: 121, greedJamChance: 3 });
+    expect(stats.find((stat) => stat.character === "T.Jacob")).toMatchObject({ coinsDonated: 59, greedJamChance: 1 });
+  });
+
+  it("returns no Greed stats for Rebirth", () => {
+    expect(analyzeGreedMachineStats([], "rebirth", 178)).toEqual([]);
   });
 });
 

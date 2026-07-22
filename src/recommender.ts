@@ -723,16 +723,21 @@ export function evaluateDonation(
 
   const filteredGreed = GREED_DONATION_MILESTONES.filter((milestone) => milestone.achievementId <= maxAchId);
   const nextGreed = filteredGreed.find((milestone) => !unlocked.has(milestone.achievementId));
-  if (stats.greedDonationCoins === 0 && unlocked.has(4) && nextGreed) {
+  if (stats.greedDonationCoins < 14 && unlocked.has(4) && nextGreed) {
+    const hasStarted = stats.greedDonationCoins > 0;
     recs.push(createLaneRecommendation({
       lane: "donation",
-      target: "Start Greed Mode — rotate characters to build donation machine",
+      target: hasStarted
+        ? "Build Greed Machine — rotate characters to keep jam odds low"
+        : "Start Greed Mode — rotate characters to build donation machine",
       achievementIds: [nextGreed.achievementId],
       blockedBy: [],
       blockerDepth: 0,
       estimatedEffort: "grind",
       downstreamValue: 6,
-      whyNow: "Greed donation is an early progression engine, not cleanup. Starting at 0 coins after beating Mom means you should rotate characters now before jam odds waste future runs.",
+      whyNow: hasStarted
+        ? `Greed donation is an early progression engine, not cleanup. At ${stats.greedDonationCoins} total coins, rotating characters now keeps jam odds low while building toward major unlocks.`
+        : "Greed donation is an early progression engine, not cleanup. Starting at 0 coins after beating Mom means you should rotate characters now before jam odds waste future runs.",
       donationMachine: "greed",
       actionCategory: "donation",
     }, {
