@@ -1721,6 +1721,94 @@ tr.complete .char-name { color: var(--mold); text-shadow: 0 0 8px rgba(76,175,80
   border-radius: inherit;
   background: linear-gradient(90deg, #9b6b22, var(--brass));
 }
+.greed-milestones {
+  margin: 0.25rem 0 1.2rem;
+}
+.greed-milestones-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.8rem;
+  margin-bottom: 0.65rem;
+}
+.greed-milestones-heading h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+.greed-milestones-next {
+  color: var(--pencil);
+  font-size: 0.82rem;
+  text-align: right;
+}
+.greed-milestones-complete { color: var(--mold); }
+.greed-milestone-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.5rem;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+.greed-milestone {
+  position: relative;
+  display: flex;
+  min-height: 5.2rem;
+  flex-direction: column;
+  gap: 0.28rem;
+  padding: 0.65rem 0.7rem;
+  overflow: hidden;
+  border: 1px solid rgba(85,85,104,0.32);
+  border-radius: var(--radius-sm);
+  background: rgba(20,20,32,0.48);
+}
+.greed-milestone::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  content: "";
+  background: var(--shadow);
+}
+.greed-milestone-unlocked { background: rgba(75,120,72,0.1); }
+.greed-milestone-unlocked::before { background: var(--mold); }
+.greed-milestone-next {
+  border-color: rgba(201,154,69,0.72);
+  background: rgba(201,154,69,0.1);
+}
+.greed-milestone-next::before { background: var(--brass); }
+.greed-milestone-locked { opacity: 0.76; }
+.greed-milestone-strategic .greed-milestone-reward::after {
+  display: inline-block;
+  padding: 0.05rem 0.28rem;
+  margin-left: 0.32rem;
+  color: var(--brass);
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  vertical-align: 0.08rem;
+  content: "key";
+  border: 1px solid currentColor;
+  border-radius: 999px;
+}
+.greed-milestone-coins {
+  color: var(--brass);
+  font-family: "Upheaval", system-ui, sans-serif;
+  font-size: 1rem;
+}
+.greed-milestone-reward {
+  flex: 1;
+  color: var(--ink);
+  font-size: 0.83rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+.greed-milestone-state {
+  color: var(--pencil);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.greed-milestone-unlocked .greed-milestone-state { color: var(--mold); }
+.greed-milestone-next .greed-milestone-state { color: var(--brass); }
 .greed-machine-groups {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1993,6 +2081,12 @@ footer {
     font-size: 0.72rem;
     padding: 0.25rem 0.45rem;
   }
+  .greed-milestones-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+  .greed-milestones-next { text-align: left; }
   .summary-title {
     font-size: 2.55rem;
   }

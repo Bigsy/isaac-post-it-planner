@@ -167,6 +167,15 @@ export interface GreedMachineCharacterStat {
   greedierJamChance: number;
 }
 
+/** Greed Donation Machine reward threshold and unlock state. */
+export interface GreedMachineMilestoneStatus {
+  coins: number;
+  achievementId: number;
+  reward: string;
+  strategic: boolean;
+  unlocked: boolean;
+}
+
 export type AchievementCategory =
   | "items" | "characters" | "challenges" | "co-op-babies"
   | "starting-items" | "cards-runes" | "stages-bosses" | "milestones";
@@ -294,6 +303,7 @@ export interface AnalysisResult {
   totalCollectibles: number;
   stats: CounterStats;
   greedMachineStats: GreedMachineCharacterStat[];
+  greedMachineMilestones: GreedMachineMilestoneStatus[];
   baseCharacters: CharacterUnlock[];
   taintedCharacters: CharacterUnlock[];
   completionGrid: CharacterProgress[];

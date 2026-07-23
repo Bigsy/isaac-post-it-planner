@@ -10,6 +10,7 @@ import {
   analyzeTaintedCompletionMarks,
   analyzeChallenges,
   analyzeBestiary,
+  analyzeGreedMachineMilestones,
   analyzeGreedMachineStats,
   generateLaneRecommendations,
   evaluateProgressionGates,
@@ -115,6 +116,40 @@ describe("Greed Donation Machine stats", () => {
     expect(greedierJamChance(54)).toBe(0);
     expect(greedierJamChance(55)).toBe(1);
     expect(greedierJamChance(200)).toBe(1);
+  });
+
+  it("reports reward thresholds and their achievement-backed unlock state", () => {
+    const milestones = analyzeGreedMachineMilestones(new Set([242, 243]), 637);
+
+    expect(milestones).toHaveLength(12);
+    expect(milestones[0]).toMatchObject({
+      coins: 2,
+      reward: "Lucky Pennies",
+      unlocked: true,
+    });
+    expect(milestones[1]).toMatchObject({
+      coins: 14,
+      reward: "Special Hanging Shopkeepers",
+      unlocked: true,
+    });
+    expect(milestones[2]).toMatchObject({
+      coins: 33,
+      reward: "Wooden Nickel",
+      unlocked: false,
+    });
+    expect(milestones.at(-1)).toMatchObject({
+      coins: 1000,
+      reward: "Keeper (new character)",
+      strategic: true,
+    });
+  });
+
+  it("only includes Greed rewards available for the save's DLC", () => {
+    expect(analyzeGreedMachineMilestones(new Set(), 178)).toEqual([]);
+
+    const afterbirthMilestones = analyzeGreedMachineMilestones(new Set(), 276);
+    expect(afterbirthMilestones.some((milestone) => milestone.reward === "Greedier Mode")).toBe(false);
+    expect(afterbirthMilestones.some((milestone) => milestone.reward === "Keeper (new character)")).toBe(true);
   });
 
   it("uses the compact Afterbirth counter layout", () => {

@@ -6,6 +6,7 @@ import type {
   CharacterProgress,
   ChallengeInfo,
   GreedMachineCharacterStat,
+  GreedMachineMilestoneStatus,
   MissingUnlocksResult,
   PhaseProgress,
   RunGoal,
@@ -737,6 +738,40 @@ function renderGreedMachineGroup(stats: GreedMachineCharacterStat[], label: stri
     </details>`;
 }
 
+function renderGreedMachineMilestones(milestones: GreedMachineMilestoneStatus[]): string {
+  if (milestones.length === 0) return "";
+
+  const nextMilestone = milestones.find((milestone) => !milestone.unlocked);
+  const nextHtml = nextMilestone
+    ? `<span class="greed-milestones-next">Next: <strong>${nextMilestone.coins.toLocaleString()} coins</strong> — ${wikiLink(achievementWikiUrl(getAchievement(nextMilestone.achievementId).name), nextMilestone.reward)}</span>`
+    : `<span class="greed-milestones-next greed-milestones-complete">All donation rewards unlocked</span>`;
+
+  const cards = milestones.map((milestone) => {
+    const isNext = milestone === nextMilestone;
+    const stateClass = milestone.unlocked ? "unlocked" : isNext ? "next" : "locked";
+    const stateLabel = milestone.unlocked ? "Unlocked" : isNext ? "Next reward" : "Locked";
+    const rewardLink = wikiLink(
+      achievementWikiUrl(getAchievement(milestone.achievementId).name),
+      milestone.reward,
+    );
+    return `
+      <li class="greed-milestone greed-milestone-${stateClass}${milestone.strategic ? " greed-milestone-strategic" : ""}">
+        <span class="greed-milestone-coins">${milestone.coins.toLocaleString()} coins</span>
+        <span class="greed-milestone-reward">${rewardLink}</span>
+        <span class="greed-milestone-state">${stateLabel}</span>
+      </li>`;
+  }).join("");
+
+  return `
+    <div class="greed-milestones">
+      <div class="greed-milestones-heading">
+        <h3>Donation Rewards</h3>
+        ${nextHtml}
+      </div>
+      <ol class="greed-milestone-grid">${cards}</ol>
+    </div>`;
+}
+
 function renderGreedMachine(result: AnalysisResult): void {
   const section = document.getElementById("greed-machine-section");
   const container = document.getElementById("greed-machine");
@@ -782,6 +817,7 @@ function renderGreedMachine(result: AnalysisResult): void {
     <div class="greed-machine-progress" role="progressbar" aria-label="Greed Donation Machine progress" aria-valuemin="0" aria-valuemax="1000" aria-valuenow="${Math.min(1000, Math.max(0, total))}">
       <div class="greed-machine-progress-fill" style="width:${machineProgress}%"></div>
     </div>
+    ${renderGreedMachineMilestones(result.greedMachineMilestones)}
     <div class="greed-machine-groups">
       ${renderGreedMachineGroup(baseStats, "Base Characters")}
       ${renderGreedMachineGroup(taintedStats, "Tainted Characters")}

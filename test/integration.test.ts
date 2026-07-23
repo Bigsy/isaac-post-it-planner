@@ -69,6 +69,15 @@ describe("integration: full pipeline with sample save", () => {
       greedierJamChance: 0,
     });
     expect(result.greedMachineStats.reduce((sum, stat) => sum + stat.coinsDonated, 0)).toBe(2);
+    expect(result.greedMachineMilestones).toHaveLength(12);
+    expect(result.greedMachineMilestones.find((milestone) => milestone.coins === 2)).toMatchObject({
+      reward: "Lucky Pennies",
+      unlocked: true,
+    });
+    expect(result.greedMachineMilestones.find((milestone) => !milestone.unlocked)).toMatchObject({
+      coins: 14,
+      reward: "Special Hanging Shopkeepers",
+    });
 
     // Character unlock states
     const lockedBase = result.baseCharacters.filter((c) => !c.unlocked);

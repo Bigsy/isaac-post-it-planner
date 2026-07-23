@@ -10,6 +10,7 @@ import type {
   CharacterUnlock,
   CounterStats,
   GreedMachineCharacterStat,
+  GreedMachineMilestoneStatus,
   SaveData,
   SuppressedItem,
   TaintedCharacterProgress,
@@ -35,6 +36,7 @@ import {
   greedierJamChance,
   greedJamChance,
 } from "./data/greed-machine";
+import { GREED_DONATION_MILESTONES } from "./data/donation";
 import { achievementWikiUrl } from "./data/wiki";
 import { buildRunPlans, toActionItems as runPlansToActionItems } from "./run-planner";
 import {
@@ -122,6 +124,21 @@ function analyzeGreedMachineStats(
       greedierJamChance: greedierJamChance(coinsDonated),
     };
   });
+}
+
+function analyzeGreedMachineMilestones(
+  unlocked: Set<number>,
+  maxAchievementId: number,
+): GreedMachineMilestoneStatus[] {
+  return GREED_DONATION_MILESTONES
+    .filter((milestone) => milestone.achievementId <= maxAchievementId)
+    .map((milestone) => ({
+      coins: milestone.coins,
+      achievementId: milestone.achievementId,
+      reward: milestone.name,
+      strategic: milestone.strategic,
+      unlocked: unlocked.has(milestone.achievementId),
+    }));
 }
 
 function analyzePhaseProgress(
@@ -467,6 +484,7 @@ export function analyze(saveData: SaveData, options: AnalyzeOptions = {}): Analy
   const dlcLevel = saveData.dlcLevel;
   const isRepentance = dlcLevel === "repentance";
   const greedMachineStats = analyzeGreedMachineStats(saveData.counters, dlcLevel, maxAchId);
+  const greedMachineMilestones = analyzeGreedMachineMilestones(unlocked, maxAchId);
 
   const filteredBase = Object.fromEntries(
     Object.entries(BASE_CHARACTER_UNLOCKS).filter(([id]) => Number(id) <= maxAchId),
@@ -542,6 +560,7 @@ export function analyze(saveData: SaveData, options: AnalyzeOptions = {}): Analy
     totalCollectibles,
     stats,
     greedMachineStats,
+    greedMachineMilestones,
     baseCharacters,
     taintedCharacters,
     completionGrid,
@@ -562,6 +581,7 @@ export {
   analyzeBestiary,
   analyzeBossKillMilestones,
   analyzeChallenges,
+  analyzeGreedMachineMilestones,
   analyzeGreedMachineStats,
   analyzeCharacterUnlocks,
   assignTiers,
