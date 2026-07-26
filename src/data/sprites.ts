@@ -85,7 +85,7 @@ export const TAINTED_CHARACTER_SPRITE: Record<string, string> = {
 export function markSpritePath(bossName: string, done: boolean): string {
   const slug = BOSS_MARK_SLUG[bossName] ?? TAINTED_BOSS_MARK_SLUG[bossName];
   if (!slug) return "";
-  return `img/marks/${slug}-${done ? "done" : "miss"}.png`;
+  return `img/marks/${slug}-${done ? "done" : "miss"}.png?v=2`;
 }
 
 /** Get boss icon path */

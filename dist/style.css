@@ -1193,7 +1193,7 @@ h3 {
 .mobile-mark .mark-icon {
   width: 24px;
   height: 24px;
-  filter: saturate(0.25) brightness(0.5) opacity(0.7);
+  filter: drop-shadow(0 0 2px rgba(168,168,184,0.3));
 }
 .mobile-card-complete {
   color: var(--mold);
@@ -1210,9 +1210,21 @@ h3 {
   margin: 0 auto;
   overflow: visible;
 }
-.mark.done .mark-icon { /* full color, no filter */ }
+.mark.done .mark-icon {
+  /* The source sprites are nearly black; recolor completed marks to vivid blood red. */
+  filter:
+    brightness(0)
+    saturate(100%)
+    invert(44%)
+    sepia(97%)
+    saturate(3900%)
+    hue-rotate(331deg)
+    brightness(110%)
+    contrast(108%)
+    drop-shadow(0 0 2px rgba(255,72,82,0.38));
+}
 .mark.missing .mark-icon {
-  filter: saturate(0.25) brightness(0.5) opacity(0.7);
+  filter: drop-shadow(0 0 2px rgba(168,168,184,0.3));
 }
 
 /* Boss column header icons — 1.5× native 24px */
@@ -1998,12 +2010,21 @@ tr.complete .char-name { color: var(--mold); text-shadow: 0 0 8px rgba(76,175,80
 
 /* Mark hover glow */
 .mark.done .mark-icon:hover {
-  filter: drop-shadow(0 0 3px var(--mold));
+  filter:
+    brightness(0)
+    saturate(100%)
+    invert(44%)
+    sepia(97%)
+    saturate(3900%)
+    hue-rotate(331deg)
+    brightness(110%)
+    contrast(108%)
+    drop-shadow(0 0 5px rgba(255,72,82,0.8));
   transform: scale(1.1);
   transition: filter 0.15s, transform 0.15s;
 }
 .mark.missing .mark-icon:hover {
-  filter: saturate(0.25) brightness(0.5) opacity(0.7) drop-shadow(0 0 3px var(--wound));
+  filter: brightness(1.18) drop-shadow(0 0 4px rgba(168,168,184,0.7));
   transform: scale(1.1);
   transition: filter 0.15s, transform 0.15s;
 }
