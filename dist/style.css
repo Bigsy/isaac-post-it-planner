@@ -1703,7 +1703,35 @@ tr.complete .char-name { color: var(--mold); text-shadow: 0 0 8px rgba(76,175,80
 .bestiary-table tr.not-encountered td { color: var(--shadow); }
 .bestiary-table tr.not-encountered td:first-child { color: var(--pencil); }
 
-/* Greed Donation Machine */
+/* Donation Machines */
+.donation-machine-panel {
+  padding: 1rem;
+  border: 1px solid rgba(85,85,104,0.28);
+  border-radius: var(--radius-md);
+  background: rgba(18,18,28,0.42);
+}
+.donation-machine-panel + .donation-machine-panel {
+  margin-top: 1rem;
+}
+.donation-machine-panel-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 0.75rem;
+  margin-bottom: 0.8rem;
+  border-bottom: 1px solid rgba(85,85,104,0.22);
+}
+.donation-machine-panel-heading h3 {
+  margin: 0;
+  color: var(--brass);
+  font-size: 1.05rem;
+}
+.donation-machine-panel-heading p {
+  margin-top: 0.18rem;
+  color: var(--pencil);
+  font-size: 0.82rem;
+}
 .greed-machine-summary {
   display: flex;
   align-items: end;
@@ -1721,6 +1749,12 @@ tr.complete .char-name { color: var(--mold); text-shadow: 0 0 8px rgba(76,175,80
   line-height: 1;
 }
 .greed-machine-total-label { display: block; margin-top: 0.25rem; }
+.donation-balance-note {
+  display: block;
+  margin-top: 0.15rem;
+  color: var(--pencil);
+  font-size: 0.78rem;
+}
 .greed-machine-progress {
   height: 7px;
   overflow: hidden;
@@ -1743,7 +1777,7 @@ tr.complete .char-name { color: var(--mold); text-shadow: 0 0 8px rgba(76,175,80
   gap: 0.8rem;
   margin-bottom: 0.65rem;
 }
-.greed-milestones-heading h3 {
+.greed-milestones-heading h4 {
   margin: 0;
   font-size: 1rem;
 }
@@ -1821,6 +1855,16 @@ tr.complete .char-name { color: var(--mold); text-shadow: 0 0 8px rgba(76,175,80
 }
 .greed-milestone-unlocked .greed-milestone-state { color: var(--mold); }
 .greed-milestone-next .greed-milestone-state { color: var(--brass); }
+.donation-limit-warning {
+  padding: 0.7rem 0.8rem;
+  color: #f0b2b2;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  border: 1px solid rgba(158,11,15,0.42);
+  border-radius: var(--radius-sm);
+  background: rgba(96,0,0,0.16);
+}
+.donation-limit-warning strong { color: var(--wound); }
 .greed-machine-groups {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

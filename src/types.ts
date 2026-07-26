@@ -304,6 +304,7 @@ export interface AnalysisResult {
   stats: CounterStats;
   greedMachineStats: GreedMachineCharacterStat[];
   greedMachineMilestones: GreedMachineMilestoneStatus[];
+  normalDonationMilestones: GreedMachineMilestoneStatus[];
   baseCharacters: CharacterUnlock[];
   taintedCharacters: CharacterUnlock[];
   completionGrid: CharacterProgress[];

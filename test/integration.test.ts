@@ -58,8 +58,18 @@ describe("integration: full pipeline with sample save", () => {
     expect(result.stats.deaths).toBeGreaterThan(0);
     expect(result.stats.momKills).toBeGreaterThan(0);
     expect(result.stats.greedDonationCoins).toBe(2);
-    expect(result.stats.normalDonationCoins).toBe(0);
+    expect(result.stats.normalDonationCoins).toBe(61);
     expect(result.stats.edenTokens).toBe(51);
+
+    // Normal Donation Machine rewards use achievements for completed thresholds
+    // and the counter for progress toward the next reward.
+    expect(result.normalDonationMilestones).toHaveLength(10);
+    expect(result.normalDonationMilestones.filter((milestone) => milestone.unlocked).map((milestone) => milestone.coins))
+      .toEqual([10, 20, 50]);
+    expect(result.normalDonationMilestones.find((milestone) => !milestone.unlocked)).toMatchObject({
+      coins: 100,
+      reward: "Store Upgrade lv.2",
+    });
 
     // Per-character Greed donations reconcile to the overall machine total.
     expect(result.greedMachineStats).toHaveLength(34);

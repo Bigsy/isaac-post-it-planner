@@ -36,7 +36,7 @@ import {
   greedierJamChance,
   greedJamChance,
 } from "./data/greed-machine";
-import { GREED_DONATION_MILESTONES } from "./data/donation";
+import { GREED_DONATION_MILESTONES, NORMAL_DONATION_MILESTONES } from "./data/donation";
 import { achievementWikiUrl } from "./data/wiki";
 import { buildRunPlans, toActionItems as runPlansToActionItems } from "./run-planner";
 import {
@@ -102,7 +102,7 @@ function parseCounterStats(counters: number[], dlcLevel: DlcLevel): CounterStats
     poopDestroyed: get(5),
     shopkeeperKills: get(11),
     greedDonationCoins: greedCounter == null ? 0 : get(greedCounter),
-    normalDonationCoins: get(19),
+    normalDonationCoins: get(18),
     edenTokens: get(20),
     winStreak: get(22),
     bestStreak: get(23),
@@ -131,6 +131,21 @@ function analyzeGreedMachineMilestones(
   maxAchievementId: number,
 ): GreedMachineMilestoneStatus[] {
   return GREED_DONATION_MILESTONES
+    .filter((milestone) => milestone.achievementId <= maxAchievementId)
+    .map((milestone) => ({
+      coins: milestone.coins,
+      achievementId: milestone.achievementId,
+      reward: milestone.name,
+      strategic: milestone.strategic,
+      unlocked: unlocked.has(milestone.achievementId),
+    }));
+}
+
+function analyzeNormalDonationMilestones(
+  unlocked: Set<number>,
+  maxAchievementId: number,
+): GreedMachineMilestoneStatus[] {
+  return NORMAL_DONATION_MILESTONES
     .filter((milestone) => milestone.achievementId <= maxAchievementId)
     .map((milestone) => ({
       coins: milestone.coins,
@@ -485,6 +500,7 @@ export function analyze(saveData: SaveData, options: AnalyzeOptions = {}): Analy
   const isRepentance = dlcLevel === "repentance";
   const greedMachineStats = analyzeGreedMachineStats(saveData.counters, dlcLevel, maxAchId);
   const greedMachineMilestones = analyzeGreedMachineMilestones(unlocked, maxAchId);
+  const normalDonationMilestones = analyzeNormalDonationMilestones(unlocked, maxAchId);
 
   const filteredBase = Object.fromEntries(
     Object.entries(BASE_CHARACTER_UNLOCKS).filter(([id]) => Number(id) <= maxAchId),
@@ -561,6 +577,7 @@ export function analyze(saveData: SaveData, options: AnalyzeOptions = {}): Analy
     stats,
     greedMachineStats,
     greedMachineMilestones,
+    normalDonationMilestones,
     baseCharacters,
     taintedCharacters,
     completionGrid,
@@ -582,6 +599,7 @@ export {
   analyzeBossKillMilestones,
   analyzeChallenges,
   analyzeGreedMachineMilestones,
+  analyzeNormalDonationMilestones,
   analyzeGreedMachineStats,
   analyzeCharacterUnlocks,
   assignTiers,

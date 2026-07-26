@@ -11,9 +11,11 @@ describe("static results layout", () => {
     expect(INDEX_HTML.indexOf('href="#path-section"')).toBeGreaterThanOrEqual(0);
   });
 
-  it("includes the Greed Machine results section and navigation link", () => {
+  it("includes the donation machines results section and navigation link", () => {
     expect(INDEX_HTML).toContain('href="#greed-machine-section"');
+    expect(INDEX_HTML).toContain(">Donations</a>");
     expect(INDEX_HTML).toContain('id="greed-machine-section"');
     expect(INDEX_HTML).toContain('id="greed-machine"');
+    expect(INDEX_HTML).toContain("<h2>Donation Machines</h2>");
   });
 });

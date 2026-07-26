@@ -738,18 +738,24 @@ function renderGreedMachineGroup(stats: GreedMachineCharacterStat[], label: stri
     </details>`;
 }
 
-function renderGreedMachineMilestones(milestones: GreedMachineMilestoneStatus[]): string {
+function renderDonationMilestones(
+  milestones: GreedMachineMilestoneStatus[],
+  currentCoins: number,
+  heading: string,
+): string {
   if (milestones.length === 0) return "";
 
   const nextMilestone = milestones.find((milestone) => !milestone.unlocked);
   const nextHtml = nextMilestone
-    ? `<span class="greed-milestones-next">Next: <strong>${nextMilestone.coins.toLocaleString()} coins</strong> — ${wikiLink(achievementWikiUrl(getAchievement(nextMilestone.achievementId).name), nextMilestone.reward)}</span>`
+    ? `<span class="greed-milestones-next">Next: <strong>${currentCoins.toLocaleString()} / ${nextMilestone.coins.toLocaleString()}</strong> — ${wikiLink(achievementWikiUrl(getAchievement(nextMilestone.achievementId).name), nextMilestone.reward)}</span>`
     : `<span class="greed-milestones-next greed-milestones-complete">All donation rewards unlocked</span>`;
 
   const cards = milestones.map((milestone) => {
     const isNext = milestone === nextMilestone;
     const stateClass = milestone.unlocked ? "unlocked" : isNext ? "next" : "locked";
-    const stateLabel = milestone.unlocked ? "Unlocked" : isNext ? "Next reward" : "Locked";
+    const stateLabel = milestone.unlocked
+      ? currentCoins >= milestone.coins ? "Reward earned" : "Previously reached"
+      : isNext ? "Next reward" : "Locked";
     const rewardLink = wikiLink(
       achievementWikiUrl(getAchievement(milestone.achievementId).name),
       milestone.reward,
@@ -765,10 +771,40 @@ function renderGreedMachineMilestones(milestones: GreedMachineMilestoneStatus[])
   return `
     <div class="greed-milestones">
       <div class="greed-milestones-heading">
-        <h3>Donation Rewards</h3>
+        <h4>${heading}</h4>
         ${nextHtml}
       </div>
       <ol class="greed-milestone-grid">${cards}</ol>
+    </div>`;
+}
+
+function renderNormalDonationMachine(result: AnalysisResult): string {
+  if (result.normalDonationMilestones.length === 0) return "";
+
+  const total = result.stats.normalDonationCoins;
+  const machineProgress = Math.min(100, Math.max(0, total / 9.99));
+  return `
+    <div class="donation-machine-panel normal-donation-panel">
+      <div class="donation-machine-panel-heading">
+        <div>
+          <h3>Normal Donation Machine</h3>
+          <p>Shop upgrades and item unlocks earned by donating during regular runs.</p>
+        </div>
+      </div>
+      <div class="greed-machine-summary">
+        <div>
+          <span class="greed-machine-total">${total.toLocaleString()} / 999</span>
+          <span class="greed-machine-total-label">current machine balance</span>
+          <span class="donation-balance-note">Earned rewards remain unlocked if the balance later falls.</span>
+        </div>
+      </div>
+      <div class="greed-machine-progress" role="progressbar" aria-label="Normal Donation Machine progress" aria-valuemin="0" aria-valuemax="999" aria-valuenow="${Math.min(999, Math.max(0, total))}">
+        <div class="greed-machine-progress-fill" style="width:${machineProgress}%"></div>
+      </div>
+      ${renderDonationMilestones(result.normalDonationMilestones, total, "Shop & Item Rewards")}
+      <div class="donation-limit-warning">
+        <strong>Stop at 999.</strong> Donating a 1,000th coin makes the machine explode and resets its balance to 0 with no additional unlock.
+      </div>
     </div>`;
 }
 
@@ -777,12 +813,18 @@ function renderGreedMachine(result: AnalysisResult): void {
   const container = document.getElementById("greed-machine");
   if (!section || !container) return;
 
-  if (result.greedMachineStats.length === 0) {
+  if (result.normalDonationMilestones.length === 0 && result.greedMachineStats.length === 0) {
     section.classList.add("hidden");
     return;
   }
 
   section.classList.remove("hidden");
+  const normalMachineHtml = renderNormalDonationMachine(result);
+  if (result.greedMachineStats.length === 0) {
+    container.innerHTML = normalMachineHtml;
+    return;
+  }
+
   const baseStats = result.greedMachineStats.filter((stat) => !stat.isTainted);
   const taintedStats = result.greedMachineStats.filter((stat) => stat.isTainted);
   const total = result.stats.greedDonationCoins;
@@ -807,20 +849,29 @@ function renderGreedMachine(result: AnalysisResult): void {
     : "";
 
   container.innerHTML = `
-    <div class="greed-machine-summary">
-      <div>
-        <span class="greed-machine-total">${total.toLocaleString()} / 1,000</span>
-        <span class="greed-machine-total-label">total machine donations</span>
+    ${normalMachineHtml}
+    <div class="donation-machine-panel greed-donation-panel">
+      <div class="donation-machine-panel-heading">
+        <div>
+          <h3>Greed Donation Machine</h3>
+          <p>Lifetime donations and per-character jam chances. Greedier mode caps the calculated chance at 1%.</p>
+        </div>
       </div>
-      ${safestHtml}
-    </div>
-    <div class="greed-machine-progress" role="progressbar" aria-label="Greed Donation Machine progress" aria-valuemin="0" aria-valuemax="1000" aria-valuenow="${Math.min(1000, Math.max(0, total))}">
-      <div class="greed-machine-progress-fill" style="width:${machineProgress}%"></div>
-    </div>
-    ${renderGreedMachineMilestones(result.greedMachineMilestones)}
-    <div class="greed-machine-groups">
-      ${renderGreedMachineGroup(baseStats, "Base Characters")}
-      ${renderGreedMachineGroup(taintedStats, "Tainted Characters")}
+      <div class="greed-machine-summary">
+        <div>
+          <span class="greed-machine-total">${total.toLocaleString()} / 1,000</span>
+          <span class="greed-machine-total-label">total machine donations</span>
+        </div>
+        ${safestHtml}
+      </div>
+      <div class="greed-machine-progress" role="progressbar" aria-label="Greed Donation Machine progress" aria-valuemin="0" aria-valuemax="1000" aria-valuenow="${Math.min(1000, Math.max(0, total))}">
+        <div class="greed-machine-progress-fill" style="width:${machineProgress}%"></div>
+      </div>
+      ${renderDonationMilestones(result.greedMachineMilestones, total, "Greed Mode Rewards")}
+      <div class="greed-machine-groups">
+        ${renderGreedMachineGroup(baseStats, "Base Characters")}
+        ${renderGreedMachineGroup(taintedStats, "Tainted Characters")}
+      </div>
     </div>`;
 }
 
