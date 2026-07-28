@@ -1584,9 +1584,7 @@ tr.complete .char-name { color: var(--mold); text-shadow: 0 0 8px rgba(76,175,80
   border-radius: var(--radius-sm);
   padding: 0.5rem 0.75rem;
   font-size: 0.88rem;
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
+  display: block;
   transition: border-color 0.2s;
 }
 .challenge-row:hover {
@@ -1594,6 +1592,12 @@ tr.complete .char-name { color: var(--mold); text-shadow: 0 0 8px rgba(76,175,80
 }
 .challenge-row:not(.done) { border-left: 2px solid rgba(155,89,182,0.4); }
 .challenge-row.done { opacity: 0.45; border-left: 2px solid rgba(76,175,80,0.3); }
+.challenge-main {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
 .challenge-rec-badge {
   font-size: 0.7rem;
   font-weight: 700;
@@ -1605,6 +1609,28 @@ tr.complete .char-name { color: var(--mold); text-shadow: 0 0 8px rgba(76,175,80
   padding: 0.1rem 0.45rem;
   margin-left: auto;
   white-space: nowrap;
+}
+.challenge-rec-badge.medium {
+  color: var(--pencil);
+  border-color: rgba(155,89,182,0.4);
+}
+.challenge-now-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--mold);
+  white-space: nowrap;
+}
+.challenge-reason {
+  display: block;
+  margin: 0.28rem 0 0 1.8rem;
+  color: var(--pencil);
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+.challenge-order-note {
+  margin: -0.25rem 0 0.65rem;
+  color: var(--pencil);
+  font-size: 0.84rem;
 }
 .challenge-completed-toggle { margin-top: 0.5rem; }
 .challenge-completed-toggle summary {

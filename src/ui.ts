@@ -30,6 +30,7 @@ import {
   wikiLink,
   wikiUrl,
 } from "./data/wiki";
+import { getChallengePriority } from "./data/challenge-tiers";
 
 function $(id: string): HTMLElement {
   const el = document.getElementById(id);
@@ -633,7 +634,8 @@ function renderActionPlan(
 }
 
 function renderChallenges(challenges: ChallengeInfo[], actionItems: ActionItem[]): void {
-  // Find recommended challenge IDs from tier 1/2 action items
+  // Action tiers show what fits the player's current route; the curated challenge
+  // order supplies the broader reward-first advice within this section.
   const recommendedIds = new Set<number>();
   for (const item of actionItems) {
     if (item.category === "challenge" && item.challengeId != null && (item.tier === 1 || item.tier === 2)) {
@@ -641,28 +643,35 @@ function renderChallenges(challenges: ChallengeInfo[], actionItems: ActionItem[]
     }
   }
 
-  const recommended = challenges.filter((c) => !c.completed && recommendedIds.has(c.id));
-  const remainingIncomplete = challenges.filter((c) => !c.completed && !recommendedIds.has(c.id));
+  const recommended = challenges
+    .filter((c) => !c.completed && getChallengePriority(c.id) != null)
+    .sort((a, b) => getChallengePriority(a.id)!.rank - getChallengePriority(b.id)!.rank);
+  const remainingIncomplete = challenges.filter((c) => !c.completed && getChallengePriority(c.id) == null);
   const completed = challenges.filter((c) => c.completed);
 
-  const renderRow = (c: ChallengeInfo, extra?: string) => {
+  const renderRow = (c: ChallengeInfo) => {
+    const priority = getChallengePriority(c.id);
     const rewardHtml = c.reward
       ? `<span class="reward">Unlocks: ${wikiLink(rewardWikiUrl(c.reward), c.reward)}</span>`
       : "";
     const nameLink = wikiLink(challengeWikiUrl(c.name), c.name);
-    const status = c.completed ? "completed" : recommendedIds.has(c.id) ? "recommended" : "incomplete";
+    const status = c.completed ? "completed" : priority ? "recommended" : "incomplete";
     const cls = c.completed ? "challenge-row done" : "challenge-row";
-    const badge = extra ? `<span class="challenge-rec-badge">${extra}</span>` : "";
-    return `<div class="${cls}" data-status="${status}"><span class="ch-id">#${c.id}</span> ${nameLink} ${rewardHtml}${badge}</div>`;
+    const active = recommendedIds.has(c.id) ? `<span class="challenge-now-badge">Good next pick</span>` : "";
+    const badge = priority
+      ? `<span class="challenge-rec-badge ${priority.tier}">#${priority.rank} ${priority.tier === "high" ? "Top priority" : "Worthwhile"}</span>`
+      : "";
+    const reason = priority ? `<span class="challenge-reason">${priority.reason}</span>` : "";
+    return `<div class="${cls}" data-status="${status}"><div class="challenge-main"><span class="ch-id">#${c.id}</span> ${nameLink} ${rewardHtml}${active}${badge}</div>${reason}</div>`;
   };
 
   let html = "";
   if (recommended.length > 0) {
-    html += `<h3 data-group="recommended">Recommended (${recommended.length})</h3><div class="challenge-rows" data-group="recommended">${recommended.map((c) => renderRow(c, "Recommended")).join("")}</div>`;
+    html += `<h3 data-group="recommended">Best rewards first (${recommended.length})</h3><p class="challenge-order-note" data-group="recommended">A rough community-consensus order. Top priority is the strongest payoff; worthwhile picks are useful once those are done.</p><div class="challenge-rows" data-group="recommended">${recommended.map(renderRow).join("")}</div>`;
   }
-  html += `<h3 data-group="incomplete">Incomplete (${remainingIncomplete.length})</h3><div class="challenge-rows" data-group="incomplete">${remainingIncomplete.map((c) => renderRow(c)).join("")}</div>`;
+  html += `<h3 data-group="incomplete">Completion cleanup (${remainingIncomplete.length})</h3><div class="challenge-rows" data-group="incomplete">${remainingIncomplete.map(renderRow).join("")}</div>`;
   if (completed.length > 0) {
-    html += `<details class="challenge-completed-toggle" data-group="completed"><summary>Completed (${completed.length})</summary><div class="challenge-rows">${completed.map((c) => renderRow(c)).join("")}</div></details>`;
+    html += `<details class="challenge-completed-toggle" data-group="completed"><summary>Completed (${completed.length})</summary><div class="challenge-rows">${completed.map(renderRow).join("")}</div></details>`;
   }
   $("challenges").innerHTML = html;
 }

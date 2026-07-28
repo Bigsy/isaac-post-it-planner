@@ -7,6 +7,7 @@ import {
   BOSS_NAMES,
 } from "../src/data/characters";
 import { CHALLENGE_NAMES, CHALLENGE_REWARDS, CHALLENGE_ACHIEVEMENT_IDS, TOTAL_CHALLENGES } from "../src/data/challenges";
+import { CHALLENGE_PRIORITIES, getChallengePriority, getChallengeTier } from "../src/data/challenge-tiers";
 import { TAINTED_COMPLETION_MARKS, TAINTED_BOSS_NAMES } from "../src/data/tainted-marks";
 
 describe("achievements data", () => {
@@ -130,6 +131,16 @@ describe("semantic correctness", () => {
 });
 
 describe("challenge data", () => {
+  it("has a stable, unique community recommendation order", () => {
+    const priorities = Object.values(CHALLENGE_PRIORITIES);
+    expect(new Set(priorities.map((entry) => entry.rank)).size).toBe(priorities.length);
+    expect([...priorities].sort((a, b) => a.rank - b.rank).map((entry) => entry.rank))
+      .toEqual(Array.from({ length: priorities.length }, (_, index) => index + 1));
+    expect(getChallengePriority(2)?.rank).toBe(1);
+    expect(getChallengeTier(6)).toBe("high");
+    expect(getChallengeTier(34)).toBe("low");
+  });
+
   it("has 45 challenges", () => {
     expect(TOTAL_CHALLENGES).toBe(45);
     expect(Object.keys(CHALLENGE_NAMES).length).toBe(45);

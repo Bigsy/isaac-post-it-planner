@@ -1,49 +1,63 @@
 /**
- * Challenge reward value tiers based on item power level.
+ * A rough challenge order based on recurring community recommendations.
  *
- * High: top-tier items that significantly affect gameplay
- * Medium: useful items worth pursuing
- * Low: cosmetics, weak items, or niche unlocks
- *
- * Challenges not listed default to 'medium'.
+ * This is deliberately a reward-first order rather than a difficulty ranking.
+ * "Top" rewards noticeably improve ordinary runs; "worthwhile" rewards are
+ * useful but less urgent. Challenges not listed are completionist cleanup.
  */
 
 export type ChallengeTier = "high" | "medium" | "low";
 
-export const CHALLENGE_TIERS: Record<number, ChallengeTier> = {
-  // High value — powerful items
-  17: "high", // Death's Touch (Waka Waka)
-  19: "high", // Epic Fetus (The Family Man)
-  39: "high", // Spirit Sword (Isaac's Awakening)
-  38: "high", // Purgatory (Baptism by Fire)
-  23: "high", // Gold Bomb (Blue Bomber) — strong bomb synergy
+export interface ChallengePriority {
+  rank: number;
+  tier: Exclude<ChallengeTier, "low">;
+  reason: string;
+}
 
-  // Rune challenge value = reward (pool cleanup), not difficulty.
-  2: "high",   // Rune of Jera (High Brow) — best rune, duplicates pickups
-  3: "medium", // Rune of Ehwaz (Head Trauma) — trapdoor utility
-  4: "medium", // Rune of Dagaz (Darkness Falls) — soul heart + curse removal
-  5: "medium", // Rune of Ansuz (The Tank) — full map reveal
+export const CHALLENGE_PRIORITIES: Record<number, ChallengePriority> = {
+  2: { rank: 1, tier: "high", reason: "Jera duplicates room pickups and can enable run-winning value plays." },
+  6: { rank: 2, tier: "high", reason: "Perthro rerolls pedestal items; one of the most consistently useful runes." },
+  17: { rank: 3, tier: "high", reason: "Death's Touch is a major damage upgrade with piercing tears." },
+  8: { rank: 4, tier: "high", reason: "Algiz grants long invulnerability and is excellent for difficult bosses." },
+  9: { rank: 5, tier: "high", reason: "Chaos Card can instantly solve nearly any boss encounter." },
+  10: { rank: 6, tier: "high", reason: "Credit Card can take an entire shop or deal for free." },
+  23: { rank: 7, tier: "high", reason: "Golden Bombs give unlimited bombs for a floor." },
+  37: { rank: 8, tier: "high", reason: "Sigil of Baphomet chains brief invulnerability after kills." },
+  39: { rank: 9, tier: "high", reason: "Spirit Sword is a powerful, run-defining weapon." },
 
-  // Medium — useful items (default, listed explicitly for notable ones)
-  9: "medium",  // Chaos Card (Demo Man)
-  15: "medium", // Swallowed Penny (Slow Roll)
-  22: "medium", // Get out of Jail Free Card (SPEED!)
-  30: "medium", // Blank Rune (The Guardian)
-
-  // Low value — weak items or cosmetics
-  1: "low",  // Rune of Hagalaz (Pitch Black)
-  11: "low", // Rules Card (Glass Cannon) — nearly useless reward
-  12: "low", // Card Against Humanity (When Life Gives You Lemons)
-  13: "low", // Burnt Penny (Beans!)
-  14: "low", // SMB Super Fan (It's in the Cards)
-  24: "low", // 2 new pills (PAY TO PLAY)
-  25: "low", // 2 new pills (Have a Heart)
-  28: "low", // D8 (PRIDE DAY!)
-  29: "low", // Onan's Streak — punishing, moderate reward
-  34: "low", // Ultra Hard — hardest challenge, weak reward
-  45: "low", // DELETE THIS — extremely difficult, minor reward
+  18: { rank: 10, tier: "medium", reason: "Technology .5 adds strong passive extra damage." },
+  4: { rank: 11, tier: "medium", reason: "Dagaz gives a soul heart and removes the current curse." },
+  5: { rank: 12, tier: "medium", reason: "Ansuz reveals the floor, saving time and resources." },
+  19: { rank: 13, tier: "medium", reason: "Epic Fetus is extremely powerful, though it heavily changes how a run plays." },
+  32: { rank: 14, tier: "medium", reason: "Magdalene permanently starts with a Full Health pill." },
+  30: { rank: 15, tier: "medium", reason: "Blank Rune gives flexible access to rune effects." },
+  33: { rank: 16, tier: "medium", reason: "Charged Keys can refill active items without consuming a battery." },
+  36: { rank: 17, tier: "medium", reason: "Dirty Mind is a solid item and improves destroyed poop pickups." },
+  38: { rank: 18, tier: "medium", reason: "Purgatory provides useful room-clearing damage." },
+  42: { rank: 19, tier: "medium", reason: "The reverse Chariot card grants a strong temporary turret effect." },
+  43: { rank: 20, tier: "medium", reason: "The reverse Justice card produces a room of useful pickups." },
+  44: { rank: 21, tier: "medium", reason: "The reverse Hermit card can turn unwanted shop items into money." },
 };
 
+const LOW_VALUE_CHALLENGES = new Set([
+  1,  // Hagalaz
+  11, // Rules Card
+  12, // Card Against Humanity
+  13, // Burnt Penny
+  14, // SMB Super Fan
+  24, // pill rotation additions
+  25, // pill rotation additions
+  28, // D8
+  29, // Kidney Stone for a punishing challenge
+  34, // minor Samson starting-health upgrade
+  45, // minor reverse card for an extremely unpredictable challenge
+]);
+
 export function getChallengeTier(challengeId: number): ChallengeTier {
-  return CHALLENGE_TIERS[challengeId] ?? "medium";
+  return CHALLENGE_PRIORITIES[challengeId]?.tier
+    ?? (LOW_VALUE_CHALLENGES.has(challengeId) ? "low" : "medium");
+}
+
+export function getChallengePriority(challengeId: number): ChallengePriority | null {
+  return CHALLENGE_PRIORITIES[challengeId] ?? null;
 }

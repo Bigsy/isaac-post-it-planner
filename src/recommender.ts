@@ -22,7 +22,7 @@ import {
 import { PROGRESSION_GATES, isGateCleared, SYSTEM_UNLOCK_MARKS } from "./data/progression";
 import { GREED_DONATION_MILESTONES, NORMAL_DONATION_MILESTONES } from "./data/donation";
 import { CHALLENGE_PREREQS } from "./data/challenge-prereqs";
-import { getChallengeTier } from "./data/challenge-tiers";
+import { getChallengePriority, getChallengeTier } from "./data/challenge-tiers";
 import { GUARDRAILS } from "./data/guardrails";
 import { detectPhase, PHASE_DEFINITIONS } from "./data/phases";
 import { getItemValue, QUALITY_SCORE } from "./data/item-values";
@@ -663,6 +663,7 @@ export function evaluateChallenges(
 
     const achievementId = findChallengeAchievementId(challenge.id, maxAchId);
     const tier = getChallengeTier(challenge.id);
+    const priority = getChallengePriority(challenge.id);
     const baseImpact = tier === "high" ? 0.75 : tier === "medium" ? 0.48 : 0.24;
     const isRuneChallenge = CLASSIC_RUNE_ACHIEVEMENTS.has(challenge.id);
     const reachesSixRunes = isRuneChallenge && unlockedRunes === 5;
@@ -676,7 +677,7 @@ export function evaluateChallenges(
     const communityMeta = achievementId != null ? communityMetaValue([achievementId], readiness) : 0;
 
     let whyNow = depth === 0
-      ? (tier === "high" ? "Strong reward, ready to attempt" : "Ready to attempt now")
+      ? (priority ? priority.reason : "Lower-priority challenge; save for completion cleanup")
       : `Blocked by: ${blockers.map((blocker) => blocker.description).join("; ")}`;
     if (isRuneChallenge && unlockedRunes < 6) {
       whyNow += reachesSixRunes
