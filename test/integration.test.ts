@@ -55,11 +55,12 @@ describe("integration: full pipeline with sample save", () => {
     expect(result.bestiaryTotal).toBeGreaterThan(0);
 
     // Stats
-    expect(result.stats.deaths).toBeGreaterThan(0);
+    expect(result.stats.deaths).toBe(335);
     expect(result.stats.momKills).toBeGreaterThan(0);
+    expect(result.stats.shopkeeperKills).toBe(315);
     expect(result.stats.greedDonationCoins).toBe(2);
-    expect(result.stats.normalDonationCoins).toBe(61);
-    expect(result.stats.edenTokens).toBe(51);
+    expect(result.stats.normalDonationCoins).toBe(51);
+    expect(result.stats.edenTokens).toBe(1);
 
     // Normal Donation Machine rewards use achievements for completed thresholds
     // and the counter for progress toward the next reward.

@@ -12,6 +12,7 @@ import {
   analyzeBestiary,
   analyzeGreedMachineMilestones,
   analyzeGreedMachineStats,
+  parseCounterStats,
   generateLaneRecommendations,
   evaluateProgressionGates,
   evaluateCharacterUnlocks,
@@ -94,6 +95,47 @@ describe("countCollectiblesSeen", () => {
     const result = countCollectiblesSeen([0, 1, 2, 3]);
     expect(result.seen).toBe(3);
     expect(result.total).toBe(3);
+  });
+});
+
+describe("parseCounterStats", () => {
+  it("uses the post-Rebirth EventCounter indices", () => {
+    const counters = Array(116).fill(0);
+    counters[9] = 9009; // Arcades entered, not deaths
+    counters[10] = 1010;
+    counters[11] = 1111; // Isaac kills, not shopkeeper kills
+    counters[12] = 1212;
+    counters[18] = 1818; // Slot machines broken, not donation balance
+    counters[20] = 2020;
+    counters[21] = 2121;
+
+    expect(parseCounterStats(counters, "repentance")).toMatchObject({
+      deaths: 1010,
+      shopkeeperKills: 1212,
+      normalDonationCoins: 2020,
+      edenTokens: 2121,
+    });
+  });
+
+  it("accounts for the missing super-special-rock counter in Rebirth", () => {
+    const counters = Array(23).fill(0);
+    counters[4] = 404;
+    counters[9] = 909;
+    counters[11] = 1111;
+    counters[19] = 1919;
+    counters[20] = 2020;
+    counters[21] = 2121;
+    counters[22] = 2222;
+
+    expect(parseCounterStats(counters, "rebirth")).toMatchObject({
+      poopDestroyed: 404,
+      deaths: 909,
+      shopkeeperKills: 1111,
+      normalDonationCoins: 1919,
+      edenTokens: 2020,
+      winStreak: 2121,
+      bestStreak: 2222,
+    });
   });
 });
 

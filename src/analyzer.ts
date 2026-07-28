@@ -92,20 +92,23 @@ function countCollectiblesSeen(collectibles: number[]): { seen: number; total: n
 
 function parseCounterStats(counters: number[], dlcLevel: DlcLevel): CounterStats {
   const get = (i: number) => (i < counters.length ? counters[i] : 0);
+  // Afterbirth inserted SUPER_SPECIAL_ROCKS_DESTROYED at EventCounter 4,
+  // shifting every later counter by one from the original Rebirth layout.
+  const getModernEvent = (i: number) => get(i + (dlcLevel === "rebirth" ? -1 : 0));
   const greedCounter = greedDonationTotalCounter(dlcLevel);
   return {
     momKills: get(1),
-    deaths: get(9),
+    deaths: getModernEvent(10),
     momsHeartKills: get(1),
     rocksDestroyed: get(2),
     tintedRocksDestroyed: get(3),
-    poopDestroyed: get(5),
-    shopkeeperKills: get(11),
+    poopDestroyed: getModernEvent(5),
+    shopkeeperKills: getModernEvent(12),
     greedDonationCoins: greedCounter == null ? 0 : get(greedCounter),
-    normalDonationCoins: get(18),
-    edenTokens: get(20),
-    winStreak: get(22),
-    bestStreak: get(23),
+    normalDonationCoins: getModernEvent(20),
+    edenTokens: getModernEvent(21),
+    winStreak: getModernEvent(22),
+    bestStreak: getModernEvent(23),
   };
 }
 
@@ -609,6 +612,7 @@ export {
   countCollectiblesSeen,
   deduplicateActionItems,
   getUnlockedIds,
+  parseCounterStats,
 };
 
 export {
