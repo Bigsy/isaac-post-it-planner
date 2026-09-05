@@ -10,6 +10,7 @@ export interface RouteDef {
 }
 
 export const ROUTES: RouteDef[] = [
+  { id: "womb", name: "Mom’s Heart", wikiPath: "Mom%27s_Heart", bosses: ["Mom's Heart"], requiredGates: ["mom"], greedMode: false, timed: false },
   {
     id: "dark-room",
     name: "Dark Room",
@@ -70,11 +71,11 @@ export const ROUTES: RouteDef[] = [
     id: "boss-rush",
     name: "Boss Rush",
     wikiPath: "Boss_Rush",
-    bosses: ["Mom's Heart", "Boss Rush"],
+    bosses: ["Boss Rush"],
     requiredGates: ["mom"],
     greedMode: false,
     timed: true,
-    timedDescription: "Timed route: reach Mom within 20:00 to open Boss Rush.",
+    timedDescription: "Timed route: defeat Mom within 20:00 to open Boss Rush.",
   },
   {
     id: "mega-satan-dr",

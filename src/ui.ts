@@ -127,7 +127,7 @@ function renderSummary(result: AnalysisResult): void {
     : "";
 
   const completedChallenges = result.challenges.filter((challenge) => challenge.completed).length;
-  const actionableItems = result.actionItems.filter((item) => item.category !== "warning");
+  const actionableItems = result.actionItems.filter((item) => item.tier === 1 || item.tier === 2);
   const topAction = actionableItems[0];
   // Count only tier 1+2 items (genuine alternatives), not later goals/backlog
   const peerAlternatives = actionableItems.filter((item) => item.tier === 1 || item.tier === 2).length - 1;
@@ -141,14 +141,7 @@ function renderSummary(result: AnalysisResult): void {
   // Compact callout for #1 action
   let calloutHtml = "";
   if (topAction) {
-    let calloutText: string;
-    if (topAction.category === "run" && topAction.character && topAction.route) {
-      const portrait = charSpritePath(topAction.character);
-      const portraitHtml = portrait ? `<img src="${portrait}" alt="" class="run-portrait">` : "";
-      calloutText = `${portraitHtml}<span class="summary-callout-label">Next move:</span> ${wikiLink(characterWikiUrl(topAction.character), topAction.character)} <span class="summary-callout-arrow">&#8594;</span> ${topAction.routeWikiPath ? wikiLink(routeWikiUrl(topAction.routeWikiPath), topAction.route) : topAction.route}`;
-    } else {
-      calloutText = `<span class="summary-callout-label">Next move:</span> ${topAction.headline}`;
-    }
+    const calloutText = `<span class="summary-callout-label">Next move:</span> ${escapeHtmlAttr(topAction.headline)}`;
     const altLine = alternativeCount > 0
       ? `<div class="summary-callout-alt"><a href="#tier-2-3">+ ${alternativeCount} alternative${alternativeCount === 1 ? "" : "s"} below</a></div>`
       : "";
@@ -193,9 +186,9 @@ function renderSummary(result: AnalysisResult): void {
               <strong>${criteriaMet}/${criteriaTotal}</strong>
             </div>
             <div class="progress-bar"><div class="progress-fill" style="width:${criteriaPct}%"></div></div>
-            ${nextCriterion
+            ${nextCriterion && result.preferences.objective==='completion'
               ? `<div class="summary-phase-next"><span class="summary-phase-next-label">Next breakpoint</span><strong>${nextCriterionHtml}</strong></div>`
-              : `<div class="summary-phase-next complete"><span class="summary-phase-next-label">Status</span><strong>Current phase criteria complete</strong></div>`}
+              : `<div class="summary-phase-next complete"><span class="summary-phase-next-label">Status</span><strong>Phase milestones describe campaign progress; next-run choices use reward value.</strong></div>`}
             <details class="phase-criteria-toggle">
               <summary class="phase-criteria-toggle-summary">Phase criteria (${criteriaMet}/${criteriaTotal})</summary>
               ${phaseCriteriaHtml}
@@ -347,7 +340,7 @@ function renderGrid(
     const missingHtml = missing.length > 0
       ? `<div class="mobile-card-missing">${missing.map((m) => {
           const src = markSpritePath(m.boss, false);
-          const shortName = bossHeaders[char.marks.indexOf(m)] ?? m.boss;
+          const shortName = bossHeaders[char.marks.findIndex(mark => mark.boss === m.boss)] ?? m.boss;
           return src
             ? `<span class="mobile-mark" title="${shortName}"><img src="${src}" alt="${shortName}" class="mark-icon"></span>`
             : `<span class="mobile-mark" title="${shortName}">${shortName}</span>`;
@@ -429,13 +422,14 @@ function renderRunGoal(goal: RunGoal, isPrimary: boolean): string {
     return `<div class="${baseClass} bundled">Works toward: ${bossLink} mark (partial progress unknown)</div>`;
   }
 
-  const prefix = isPrimary ? "" : "Also: ";
+  const prefix = isPrimary ? "" : "Incidental reward: ";
   const bossLink = wikiLink(bossWikiUrl(goal.boss), goal.boss);
   const itemPart = goal.itemName ? ` -> ${wikiLink(wikiUrl(goal.itemName), goal.itemName)}` : "";
   return `<div class="${baseClass}">${prefix}${bossLink} mark${itemPart} ${qualityBadge}</div>`;
 }
 
 function renderActionHeadline(item: ActionItem): string {
+  if (item.primaryAchievementId || item.setupTarget) return `${escapeHtmlAttr(item.headline)} ${renderTimedBadge(!!item.timed, item.timedDescription)}`;
   if (item.category === "run" && item.character && item.route) {
     const portrait = charSpritePath(item.character);
     const routeHtml = item.routeWikiPath ? wikiLink(routeWikiUrl(item.routeWikiPath), item.route) : item.route;
@@ -473,6 +467,7 @@ function renderActionHeadline(item: ActionItem): string {
 function renderScoreBreakdown(item: ActionItem): string {
   if (!item.scoreBreakdown) return "";
   const b = item.scoreBreakdown;
+  if (b.primaryBenefit != null) return `<details class="action-debug"><summary>Score breakdown</summary><div class="action-debug-grid">${[['Primary unlock', b.primaryBenefit], ['Prerequisite progress', b.setupBenefit], ['Other useful rewards', b.additionalBenefit], ['Completion', b.completionBenefit], ['Burden penalty', -(b.burden ?? 0)], ['Final score', b.finalScore]].map(([label,value])=>`<span>${label}</span><strong>${Number(value).toFixed(1)}</strong>`).join('')}</div></details>`;
   return `
     <details class="action-debug">
       <summary>Score breakdown</summary>
@@ -505,7 +500,7 @@ function renderActionCard(item: ActionItem, expanded: boolean): string {
         return blocker.description;
       }).join("; ")}</div>`
     : "";
-  const whyFirst = item.whyFirst ? `<div class="action-why-first">${item.whyFirst}</div>` : "";
+  const whyFirst = item.selectionLabel ? `<div class="action-why-first">${escapeHtmlAttr(item.selectionLabel)}</div>` : item.whyFirst ? `<div class="action-why-first">${item.whyFirst}</div>` : "";
   const goals = item.category === "run" && item.goals && item.goals.length > 0
     ? `<div class="run-goals">${item.goals.map((goal, index) => renderRunGoal(goal, index === 0)).join("")}</div>`
     : "";
@@ -559,7 +554,7 @@ function renderActionPlan(
 
   const warnings = actionItems.filter((item) => item.isToxicWarning);
   const guardrails = actionItems.filter((item) => item.category === "warning" && !item.isToxicWarning);
-  const actionable = actionItems.filter((item) => item.category !== "warning");
+  const actionable = actionItems.filter((item) => item.category !== "warning" && !item.excluded);
   const tierOne = actionable.filter((item) => item.tier === 1);
   const tierTwo = actionable.filter((item) => item.tier === 2);
   const tierThree = actionable.filter((item) => item.tier === 3);
@@ -570,28 +565,14 @@ function renderActionPlan(
     : "";
 
   if (actionable.length === 0) {
-    tierOneEl.innerHTML = `<p class="empty">Nothing major stands out right now. You're mostly down to cleanup and edge cases.</p>`;
+    tierOneEl.innerHTML = `<p class="empty">No suitable next run matches these preferences. Reset the session controls or try Completion.</p>`;
     tierTwoThreeEl.innerHTML = guardrails.length > 0
       ? `<details class="lane-section"><summary>Things to Know (${guardrails.length})</summary><div class="guardrails-panel">${guardrails.map((item) => `<div class="guardrail-item"><strong>${item.headline}</strong><p>${item.detail}</p></div>`).join("")}</div></details>`
       : "";
     return;
   }
 
-  if (actionable.length <= 5) {
-    tierOneEl.innerHTML = `
-      <div class="path-group tier-1">
-        <div class="path-group-header">Nearly There</div>
-        <div class="path-group-cards">${actionable.map((item) => renderActionCard(item, true)).join("")}</div>
-      </div>
-    `;
-  } else {
-    tierOneEl.innerHTML = `
-      <div class="path-group tier-1">
-        <div class="path-group-header">Do This</div>
-        <div class="path-group-cards">${tierOne.map((item) => renderActionCard(item, true)).join("")}</div>
-      </div>
-    `;
-  }
+  tierOneEl.innerHTML = tierOne.length ? `<div class="path-group tier-1"><div class="path-group-header">Next run</div><div class="path-group-cards">${tierOne.map(item=>renderActionCard(item,true)).join('')}</div></div>` : `<p class="empty">No suitable next run matches these preferences. Reset preferences or try Completion.</p>`;
 
   const sections: string[] = [];
   if (tierTwo.length > 0) {
@@ -1164,6 +1145,7 @@ export function renderResults(result: AnalysisResult): void {
   renderOverview(result);
   renderGreedMachine(result);
   renderActionPlan(result.actionItems, result.suppressedItems);
+  renderPowerTargets(result);
   renderBossKillMilestones(result.bossKillMilestones);
   renderCompletionDashboard(result);
 
@@ -1260,4 +1242,34 @@ export function showError(message: string): void {
 export function clearError(): void {
   $("error").textContent = "";
   $("error").classList.add("hidden");
+}
+
+function renderPowerTargets(result: AnalysisResult): void {
+  let container = document.getElementById('missing-power');
+  if (!container) {
+    container=document.createElement('section'); container.id='missing-power';
+    document.getElementById('tier-2-3')?.after(container);
+  }
+  container.onclick=(event)=>{
+    const toggle=(event.target as HTMLElement).closest<HTMLButtonElement>('#power-targets-toggle');
+    if(toggle) {
+      const expanded=toggle.getAttribute('aria-expanded') !== 'true';
+      container.querySelectorAll<HTMLElement>('.power-target').forEach((card,index)=>{ card.hidden=!expanded && index>=6; });
+      toggle.setAttribute('aria-expanded',String(expanded));
+      toggle.textContent=expanded ? 'Show fewer' : `Show all ${result.missingPower.length}`;
+      return;
+    }
+    const link=(event.target as HTMLElement).closest<HTMLAnchorElement>('a[href^="#action-"]');
+    if(!link) return;
+    const target=document.getElementById(link.hash.slice(1));
+    for(let node: HTMLElement | null=target; node; node=node.parentElement) {
+      if(node instanceof HTMLDetailsElement) node.open=true;
+      if(node.classList.contains('tier3-overflow')) node.classList.remove('hidden');
+    }
+  };
+  container.innerHTML = `<h2>Powerful unlocks you're missing</h2><p>Reviewed account benefits, including targets outside the next-run shortlist. Item tiers describe the reward; route burden affects priority.</p>
+    <div id="power-target-list" class="power-targets">${result.missingPower.map((t,index)=>`<article class="power-target"${index>=6 ? ' hidden' : ''}><h3>${wikiLink(t.sourceUrls[1], escapeHtmlAttr(t.name))}</h3><span class="power-status">${t.status}</span><p>${escapeHtmlAttr(t.benefit)}</p><p><strong>Unlock method:</strong> ${escapeHtmlAttr(t.method)}</p>${t.requirements.length ? `<p><strong>Requirements:</strong> ${t.requirements.map(escapeHtmlAttr).join('; ')}</p>` : ''}<p><strong>Next step:</strong> ${t.actionId && result.actionItems.some(a=>a.id===t.actionId && !a.excluded) ? `<a href="#action-${t.actionId}">${escapeHtmlAttr(t.nextStep)}</a>` : escapeHtmlAttr(t.nextStep)}</p></article>`).join('')}</div>
+    ${result.missingPower.length>6 ? `<button type="button" id="power-targets-toggle" aria-expanded="false" aria-controls="power-target-list">Show all ${result.missingPower.length}</button>` : ''}
+    ${result.missingPower.length ? '' : '<p>No reviewed power unlocks remain for this save.</p>'}
+    <details class="lane-section"><summary>Ongoing goals (${result.ongoingGoals.length})</summary>${result.ongoingGoals.map(a=>renderActionCard(a,false)).join('')}</details>`;
 }

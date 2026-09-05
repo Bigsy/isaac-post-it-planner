@@ -1,4 +1,4 @@
-export type ItemQuality = "s-tier" | "a-tier" | "b-tier" | "c-tier" | "toxic";
+export type ItemQuality = "s-tier" | "a-tier" | "b-tier" | "c-tier" | "toxic" | "unreviewed";
 
 export interface ItemValueEntry {
   achievementId: number;
@@ -8,6 +8,7 @@ export interface ItemValueEntry {
 }
 
 export const QUALITY_SCORE: Record<ItemQuality, number> = {
+  "unreviewed": 0.1,
   "s-tier": 1.0,
   "a-tier": 0.7,
   "b-tier": 0.4,
@@ -16,11 +17,16 @@ export const QUALITY_SCORE: Record<ItemQuality, number> = {
 };
 
 /**
- * Item quality catalog — covers S-tier, A-tier, C-tier, and toxic unlocks.
- * Achievement IDs not in this catalog default to b-tier at lookup time.
+ * Item quality catalog — describes reward strength separately from reviewed account benefit.
+ * Uncatalogued rewards are unreviewed, not B-tier.
  * All IDs verified against src/data/achievements.ts.
  */
 export const ITEM_VALUES: ItemValueEntry[] = [
+  { achievementId: 584, itemName: "Spindown Dice", quality: "s-tier", reason: "Predictable pedestal transformations; requires checking collectible IDs." },
+  { achievementId: 464, itemName: "Keeper's Sack", quality: "s-tier", reason: "Shop purchases build permanent stats for the run." },
+  { achievementId: 504, itemName: "Echo Chamber", quality: "s-tier", reason: "Replays recent consumables; powerful with useful cards and runes." },
+  { achievementId: 432, itemName: "Damocles", quality: "a-tier", reason: "Extra item pedestals with a potentially fatal risk after taking damage; optional use." },
+  { achievementId: 444, itemName: "Guppy's Eye", quality: "a-tier", reason: "Preview chest contents and contribute to Guppy transformation." },
   // === S-tier ===
   { achievementId: 470, itemName: "Revelation", quality: "s-tier", reason: "Bethany vs Mother — flying + holy laser" },
   { achievementId: 190, itemName: "Incubus", quality: "s-tier", reason: "Lilith vs Hush — familiar clone of tears" },
@@ -38,7 +44,7 @@ export const ITEM_VALUES: ItemValueEntry[] = [
   { achievementId: 429, itemName: "The Stairway", quality: "s-tier", reason: "Jacob vs Isaac — Angel shop every floor" },
 
   // === A-tier ===
-  { achievementId: 186, itemName: "Maw of the Void", quality: "a-tier", reason: "Azazel vs Hush — black heart ring" },
+  { achievementId: 186, itemName: "Maw of the Void", quality: "a-tier", reason: "Azazel vs Hush — charged damaging ring; no black-heart generation in Repentance" },
   { achievementId: 250, itemName: "Holy Mantle (Lost)", quality: "a-tier", reason: "879 greed donation — Lost starting item (essential)" },
   { achievementId: 103, itemName: "Death's Touch", quality: "a-tier", reason: "Challenge #17 — damage up + piercing" },
   { achievementId: 289, itemName: "Eden's Soul", quality: "a-tier", reason: "Eden vs Delirium — spawns 2 random items" },
@@ -72,10 +78,10 @@ export const ITEM_VALUES: ItemValueEntry[] = [
   { achievementId: 574, itemName: "Cricket Leg", quality: "b-tier" },
   { achievementId: 576, itemName: "Polished Bone", quality: "b-tier" },
   { achievementId: 578, itemName: "Expansion Pack", quality: "b-tier" },
-  { achievementId: 580, itemName: "RC Remote", quality: "toxic", reason: "trinket pool pollution — nearly useless unlock" },
+  { achievementId: 580, itemName: "RC Remote", quality: "c-tier", reason: "Optional trinket: remote familiar control is situational" },
 
   // === C-tier (weak unlocks) ===
-  { achievementId: 472, itemName: "Magic Skin", quality: "toxic", reason: "run-health risk — repeated use costs hearts and drags runs sideways" },
+  { achievementId: 472, itemName: "Magic Skin", quality: "c-tier", reason: "Optional active: trades health for items; repeated use has drawbacks" },
   { achievementId: 51, itemName: "Abel", quality: "c-tier", reason: "Cain vs Lamb — mirrored familiar, nearly useless" },
   { achievementId: 55, itemName: "Blood Penny", quality: "c-tier", reason: "Samson vs ??? — half red heart from pennies" },
   { achievementId: 106, itemName: "Isaac's Tears", quality: "c-tier", reason: "Isaac vs Isaac — weak tear burst" },
@@ -85,12 +91,12 @@ export const ITEM_VALUES: ItemValueEntry[] = [
   { achievementId: 200, itemName: "Key Bum", quality: "c-tier", reason: "Lazarus vs Greed — eats keys, gives random chests" },
   { achievementId: 112, itemName: "Eve's Mascara", quality: "c-tier", reason: "Eve vs Boss Rush — damage up but halves fire rate" },
 
-  // === Toxic (pool pollution) ===
-  { achievementId: 105, itemName: "Missing No.", quality: "toxic", reason: "Lazarus vs Boss Rush — rerolls all items every floor, run-ruining" },
-  { achievementId: 30, itemName: "The Scissors", quality: "toxic", reason: "Die 100 times — weak active item" },
-  { achievementId: 240, itemName: "Sticky Nickels", quality: "toxic", reason: "Keeper vs Boss Rush — nickels stick to ground, annoying" },
-  { achievementId: 500, itemName: "TMTRAINER", quality: "toxic", reason: "T.Eden vs Beast — unpredictable glitch items that can break runs" },
-  { achievementId: 593, itemName: "Corrupted Data", quality: "toxic", reason: "T.Eden vs Delirium — unpredictable glitch items that can break runs" },
+  // === Situational / low-priority unlocks (not blanket pool warnings) ===
+  { achievementId: 105, itemName: "Missing No.", quality: "c-tier", reason: "Lazarus vs Boss Rush — optional pickup that rerolls the build each floor" },
+  { achievementId: 30, itemName: "The Scissors", quality: "c-tier", reason: "Die 100 times — weak active item" },
+  { achievementId: 240, itemName: "Sticky Nickels", quality: "c-tier", reason: "Keeper vs Boss Rush — nickels stick to ground, annoying" },
+  { achievementId: 500, itemName: "TMTRAINER", quality: "c-tier", reason: "T.Eden vs Beast — optional pickup with unpredictable glitched effects" },
+  { achievementId: 593, itemName: "Corrupted Data", quality: "c-tier", reason: "T.Eden vs Delirium — changes some Secret Room / I AM ERROR item spawns unpredictably" },
 ];
 
 const valueMap = new Map<number, ItemValueEntry>();

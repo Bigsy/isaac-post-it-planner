@@ -5,434 +5,260 @@ import type {
   PhaseProgress,
   RunGoal,
   RunPlan,
-  ScoreBreakdown,
   TaintedCharacterProgress,
 } from "./types";
 import type { DlcLevel } from "./data/dlc";
-import type { ProgressionGate } from "./data/progression";
-import { PHASE_DEFINITIONS } from "./data/phases";
 import { getAchievement } from "./data/achievements";
-import { getItemValue, QUALITY_SCORE, type ItemQuality } from "./data/item-values";
-import { COMMUNITY_META } from "./data/community-meta";
-import { PROGRESSION_GATES, isGateCleared, SYSTEM_UNLOCK_MARKS } from "./data/progression";
-import { GATE_ROUTE_ALIGNMENT, ROUTES, TAINTED_BUNDLE_BOSSES, type RouteDef } from "./data/run-paths";
-import { slugifyActionPart } from "./recommender";
+import { getItemValue } from "./data/item-values";
+import { unlockValue } from "./data/unlock-values";
+import {
+  PROGRESSION_GATES,
+  isGateCleared,
+  type ProgressionGate,
+} from "./data/progression";
+import {
+  ROUTES,
+  GATE_ROUTE_ALIGNMENT,
+  TAINTED_BUNDLE_BOSSES,
+  type RouteDef,
+} from "./data/run-paths";
+import { scoreAction } from "./planner-scoring";
 
-const GATE_BONUS = 0.3;
-const PHASE_BONUS = 0.2;
-const TIMED_PENALTY = -0.15;
-const BUNDLED_PENALTY = -0.1;
-const EPSILON = 1e-9;
-const EFFORT_PENALTY = 1;
-
-interface ScoredRoutePlan {
-  route: RouteDef;
-  goals: RunGoal[];
-  primaryGoal: RunGoal;
-  scoreBreakdown: RunPlan["scoreBreakdown"];
-  score: number;
-  isPhaseAligned: boolean;
-}
-
-function getPhaseCriterionIds(phaseProgress: PhaseProgress): Set<number> {
-  const ids = new Set<number>();
-  const phase = PHASE_DEFINITIONS.find((p) => p.id === phaseProgress.currentPhase);
-  if (!phase) return ids;
-  for (const criterion of phase.completionCriteria) {
-    if (criterion.achievementId != null) {
-      ids.add(criterion.achievementId);
-    }
+export function routeRequirements(
+  route: RouteDef,
+  unlocked: Set<number>,
+  stats: CounterStats,
+  dlc: DlcLevel,
+): string[] {
+  const requirements: string[] = [];
+  if (route.greedMode && dlc === "rebirth")
+    requirements.push("Requires Afterbirth");
+  if (
+    route.id === "greedier" &&
+    (dlc === "rebirth" || dlc === "afterbirth" || !unlocked.has(341))
+  )
+    requirements.push("Donate 500 coins to unlock Greedier");
+  if (["corpse", "home"].includes(route.id) && dlc !== "repentance")
+    requirements.push("Requires Repentance");
+  if (route.id === "void" && (dlc === "rebirth" || dlc === "afterbirth"))
+    requirements.push("Requires Afterbirth+");
+  if (route.id === "home" && !unlocked.has(57) && !unlocked.has(78))
+    requirements.push("Unlock the Polaroid or Negative for the Strange Door");
+  if (route.id === "blue-womb" && dlc === "rebirth")
+    requirements.push("Requires Afterbirth");
+  for (const id of route.requiredGates) {
+    const gate = PROGRESSION_GATES.find((g) => g.id === id);
+    if (gate && !isGateCleared(gate, unlocked, stats))
+      requirements.push(gate.description);
   }
-  return ids;
+  return requirements;
 }
-
-function resolveItemInfo(achievementId: number): { itemName: string; itemQuality: ItemQuality } {
-  const item = getItemValue(achievementId);
-  if (item) {
-    return { itemName: item.itemName, itemQuality: item.quality };
-  }
-  return { itemName: getAchievement(achievementId).name, itemQuality: "b-tier" };
-}
-
-function compareMarkGoalQuality(a: RunGoal, b: RunGoal): number {
-  const qualityA = a.itemQuality ? QUALITY_SCORE[a.itemQuality] : 0;
-  const qualityB = b.itemQuality ? QUALITY_SCORE[b.itemQuality] : 0;
-  if (qualityB !== qualityA) return qualityB - qualityA;
-  if ((a.isBundled ?? false) !== (b.isBundled ?? false)) return a.isBundled ? 1 : -1;
-  return a.boss.localeCompare(b.boss);
-}
-
-function buildGateGoals(
+export function routeBurden(
   routeId: string,
-  gatesById: Map<string, ProgressionGate>,
-  unclearedGates: Set<string>,
-): RunGoal[] {
-  const goals: RunGoal[] = [];
-  for (const [gateId, routeIds] of Object.entries(GATE_ROUTE_ALIGNMENT)) {
-    if (!unclearedGates.has(gateId)) continue;
-    if (!routeIds.includes(routeId)) continue;
-    const gate = gatesById.get(gateId);
-    if (!gate) continue;
-    goals.push({
-      type: "gate-progress",
-      boss: gate.name,
-      description: `Works toward: ${gate.description}`,
-      achievementId: gate.achievementIds[0],
-    });
-  }
-  return goals;
+  character: string,
+  unlocked: Set<number> = new Set(),
+): number {
+  const route =
+    (
+      {
+        womb: 4,
+        "boss-rush": 9,
+        cathedral: 6,
+        sheol: 6,
+        chest: 9,
+        "dark-room": 9,
+        "blue-womb": 13,
+        home: 11,
+        corpse: 15,
+        void: 21,
+        greed: 7,
+        greedier: 15,
+        "mega-satan-dr": 18,
+        "mega-satan-ch": 18,
+      } as Record<string, number>
+    )[routeId] ?? 10;
+  const char =
+    character === "Jacob" || character === "T.Jacob"
+      ? 6
+      : character === "T.Lost"
+        ? 9
+        : character === "The Lost"
+          ? unlocked.has(250)
+            ? 3
+            : 9
+          : character === "Keeper"
+            ? unlocked.has(236)
+              ? 3
+              : 6
+            : character === "T.Lazarus"
+              ? 6
+              : 0;
+  return Math.min(25, route + char);
 }
-
-function buildPhaseGoals(goals: RunGoal[], phaseAchievementIds: Set<number>): RunGoal[] {
-  const phaseGoalIds = new Set<number>();
-  for (const goal of goals) {
-    if (goal.achievementId == null) continue;
-    if (phaseAchievementIds.has(goal.achievementId)) {
-      phaseGoalIds.add(goal.achievementId);
-    }
-  }
-  return Array.from(phaseGoalIds).map((achievementId) => ({
-    type: "phase-criterion",
-    boss: "Phase",
-    achievementId,
-    description: `Phase criterion: ${getAchievement(achievementId).name}`,
-  }));
-}
-
-function evaluateRouteForBaseCharacter(
-  character: CharacterProgress,
+export function routeInstructions(
   route: RouteDef,
-  phaseAchievementIds: Set<number>,
-  gateGoals: RunGoal[],
-): ScoredRoutePlan | null {
-  const markGoals: RunGoal[] = [];
-
-  for (const mark of character.marks) {
-    if (mark.done || mark.achievementId == null) continue;
-    if (!route.bosses.includes(mark.boss)) continue;
-    const { itemName, itemQuality } = resolveItemInfo(mark.achievementId);
-    markGoals.push({
-      type: "completion-mark",
-      boss: mark.boss,
-      achievementId: mark.achievementId,
-      itemName,
-      itemQuality,
-      description: `${mark.boss} mark -> ${itemName}`,
-    });
-  }
-
-  return scoreRoutePlan(route, markGoals, gateGoals, phaseAchievementIds);
+  unlocked: Set<number>,
+): string {
+  let text = route.greedMode
+    ? route.id === "greedier"
+      ? "Play Greedier mode. "
+      : "Play Greed mode. "
+    : "Play on Hard for completion credit. ";
+  text += `Route: ${route.name}. `;
+  if (route.id.startsWith("mega-satan"))
+    text +=
+      "Collect both Angel Room Key Pieces or another door opener in this run; access is conditional. ";
+  if (
+    ["sheol", "cathedral", "chest", "dark-room"].includes(route.id) &&
+    !unlocked.has(34)
+  )
+    text +=
+      "Before It Lives, the post-heart path requires a Devil/Angel Room opening; access is conditional. ";
+  if (route.id === "corpse")
+    text +=
+      "Collect both Knife Pieces, open the flesh door and continue to Corpse II. ";
+  if (route.id === "home")
+    text +=
+      "Take the Polaroid or Negative after Mom, use The Fool to return to the Strange Door, take Dad’s Note, ascend to Home, then defeat Dogma and Beast. ";
+  return text + (route.timedDescription ?? "");
 }
-
-function evaluateRouteForTaintedCharacter(
-  character: TaintedCharacterProgress,
-  route: RouteDef,
-  phaseAchievementIds: Set<number>,
-  gateGoals: RunGoal[],
-  maxAchId: number,
-): ScoredRoutePlan | null {
-  const markGoals: RunGoal[] = [];
-
-  for (const mark of character.marks) {
-    if (mark.done || mark.achievementId > maxAchId) continue;
-    const bundleBosses = TAINTED_BUNDLE_BOSSES[mark.boss];
-    if (bundleBosses) {
-      if (!bundleBosses.some((b) => route.bosses.includes(b))) continue;
-      const { itemName, itemQuality } = resolveItemInfo(mark.achievementId);
-      markGoals.push({
-        type: "completion-mark",
-        boss: mark.boss,
-        achievementId: mark.achievementId,
-        itemName,
-        itemQuality,
-        description: `Works toward ${mark.boss} mark`,
-        isBundled: true,
-      });
-      continue;
-    }
-
-    if (!route.bosses.includes(mark.boss)) continue;
-    const { itemName, itemQuality } = resolveItemInfo(mark.achievementId);
-    markGoals.push({
-      type: "completion-mark",
-      boss: mark.boss,
-      achievementId: mark.achievementId,
-      itemName,
-      itemQuality,
-      description: `${mark.boss} mark -> ${itemName}`,
-    });
-  }
-
-  return scoreRoutePlan(route, markGoals, gateGoals, phaseAchievementIds);
-}
-
-function scoreRoutePlan(
-  route: RouteDef,
-  markGoals: RunGoal[],
-  gateGoals: RunGoal[],
-  phaseAchievementIds: Set<number>,
-): ScoredRoutePlan | null {
-  if (markGoals.length === 0) return null;
-
-  const sortedMarks = [...markGoals].sort(compareMarkGoalQuality);
-  const primaryGoal = sortedMarks[0];
-  const bundledCount = sortedMarks.filter((g) => g.isBundled).length;
-  const markScore = sortedMarks.reduce((sum, goal) => {
-    if (!goal.itemQuality) return sum;
-    return sum + QUALITY_SCORE[goal.itemQuality];
-  }, 0);
-  const gateBonus = gateGoals.reduce((sum, goal) => {
-    const gate = goal.achievementId != null
-      ? PROGRESSION_GATES.find(g => g.achievementIds[0] === goal.achievementId)
-      : undefined;
-    const systemMarks = gate ? (SYSTEM_UNLOCK_MARKS[gate.id] ?? 0) : 0;
-    return sum + GATE_BONUS + (systemMarks > 0 ? Math.min(systemMarks / 50, 1) * 0.5 : 0);
-  }, 0);
-  const hasPhaseAlignedMark = sortedMarks.some(
-    (goal) => goal.achievementId != null && phaseAchievementIds.has(goal.achievementId),
-  );
-  const hasPhaseAlignedGate = gateGoals.some(
-    (goal) => goal.achievementId != null && phaseAchievementIds.has(goal.achievementId),
-  );
-  const hasPhaseAlignedGoal = hasPhaseAlignedMark || hasPhaseAlignedGate;
-  const phaseBonus = hasPhaseAlignedGoal ? PHASE_BONUS : 0;
-  const timedPenalty = route.timed ? TIMED_PENALTY : 0;
-  const bundledPenalty = bundledCount * BUNDLED_PENALTY;
-  const score = markScore + gateBonus + phaseBonus + timedPenalty + bundledPenalty;
-
-  const phaseGoals = buildPhaseGoals([...sortedMarks, ...gateGoals], phaseAchievementIds);
-  const goals = [
-    primaryGoal,
-    ...sortedMarks.filter((goal) => goal !== primaryGoal),
-    ...phaseGoals,
-    ...gateGoals,
-  ];
-
-  // Only keep plans that combine at least two concrete goals.
-  const goalCountForFilter = sortedMarks.length + gateGoals.length;
-  if (goalCountForFilter < 2) return null;
-
-  return {
-    route,
-    goals,
-    primaryGoal,
-    scoreBreakdown: {
-      markScore,
-      gateBonus,
-      phaseBonus,
-      timedPenalty,
-      bundledPenalty,
-    },
-    score,
-    isPhaseAligned: hasPhaseAlignedGoal,
-  };
-}
-
-function buildWhyThisRun(markGoals: RunGoal[], gateGoals: RunGoal[], isPhaseAligned: boolean): string {
-  const parts: string[] = [];
-  parts.push(`${markGoals.length} mark${markGoals.length === 1 ? "" : "s"}`);
-  if (gateGoals.length > 0) {
-    const gateTargets = gateGoals.map((goal) => goal.boss).join(", ");
-    parts.push(`works toward ${gateTargets}`);
-  }
-  if (isPhaseAligned) {
-    parts.push("phase-aligned");
-  }
-  return parts.join(" + ");
-}
-
-function isBetterCharacterPlan(candidate: ScoredRoutePlan, current: ScoredRoutePlan): boolean {
-  if (candidate.score > current.score + EPSILON) return true;
-  if (candidate.score + EPSILON < current.score) return false;
-  if (candidate.isPhaseAligned !== current.isPhaseAligned) {
-    return candidate.isPhaseAligned;
-  }
-  return candidate.route.id < current.route.id;
-}
-
-function sortPlans(a: RunPlan, b: RunPlan): number {
-  if (b.score !== a.score) return b.score - a.score;
-  const alignedA = a.goals.some((goal) => goal.type === "phase-criterion");
-  const alignedB = b.goals.some((goal) => goal.type === "phase-criterion");
-  if (alignedA !== alignedB) return alignedA ? -1 : 1;
-  if (a.character !== b.character) return a.character.localeCompare(b.character);
-  return a.routeId.localeCompare(b.routeId);
-}
-
 export function buildRunPlans(
   baseGrid: CharacterProgress[],
   taintedGrid: TaintedCharacterProgress[],
   unlocked: Set<number>,
-  unlockedCharacters: Set<string>,
-  phaseProgress: PhaseProgress,
+  available: Set<string>,
+  phase: PhaseProgress,
   gates: ProgressionGate[],
   stats: CounterStats,
-  _dlcLevel: DlcLevel,
-  maxAchId: number,
+  dlc: DlcLevel,
+  maxId: number,
 ): RunPlan[] {
-  const phaseAchievementIds = getPhaseCriterionIds(phaseProgress);
-  const clearedGates = new Set<string>();
-  for (const gate of gates) {
-    if (isGateCleared(gate, unlocked, stats)) {
-      clearedGates.add(gate.id);
-    }
-  }
-  const unclearedGates = new Set(gates.map((g) => g.id).filter((id) => !clearedGates.has(id)));
-  const gatesById = new Map(gates.map((g) => [g.id, g]));
-
-  const accessibleRoutes = ROUTES.filter(
-    (route) => route.requiredGates.every((gateId) => clearedGates.has(gateId)),
-  );
   const plans: RunPlan[] = [];
-
-  for (const character of baseGrid) {
-    if (!unlockedCharacters.has(character.name)) continue;
-    if (character.done >= character.total) continue;
-
-    let bestPlan: ScoredRoutePlan | null = null;
-    for (const route of accessibleRoutes) {
-      const gateGoals = buildGateGoals(route.id, gatesById, unclearedGates);
-      const evaluated = evaluateRouteForBaseCharacter(character, route, phaseAchievementIds, gateGoals);
-      if (!evaluated) continue;
-      if (!bestPlan || isBetterCharacterPlan(evaluated, bestPlan)) {
-        bestPlan = evaluated;
+  for (const character of [...baseGrid, ...taintedGrid]) {
+    if (!available.has(character.name)) continue;
+    const tainted = character.name.startsWith("T.");
+    for (const route of ROUTES) {
+      if (routeRequirements(route, unlocked, stats, dlc).length) continue;
+      const goals: RunGoal[] = [];
+      for (const mark of character.marks) {
+        if (
+          mark.done ||
+          mark.achievementId == null ||
+          mark.achievementId > maxId
+        )
+          continue;
+        const bundle = tainted ? TAINTED_BUNDLE_BOSSES[mark.boss] : undefined;
+        if (!(bundle ?? [mark.boss]).some((b) => route.bosses.includes(b)))
+          continue;
+        goals.push({
+          type: "completion-mark",
+          boss: mark.boss,
+          achievementId: mark.achievementId,
+          itemName: getAchievement(mark.achievementId).name,
+          itemQuality:
+            getItemValue(mark.achievementId)?.quality ?? "unreviewed",
+          isBundled: !!bundle,
+          description: bundle
+            ? `Works toward ${mark.boss}; constituent progress is not readable.`
+            : getAchievement(mark.achievementId).unlockDescription,
+        });
       }
-    }
-
-    if (!bestPlan) continue;
-    const markGoals = bestPlan.goals.filter((goal) => goal.type === "completion-mark");
-    const gateGoals = bestPlan.goals.filter((goal) => goal.type === "gate-progress");
-    plans.push({
-      character: character.name,
-      isTainted: false,
-      route: bestPlan.route.name,
-      routeId: bestPlan.route.id,
-      routeWikiPath: bestPlan.route.wikiPath,
-      whyThisRun: buildWhyThisRun(markGoals, gateGoals, bestPlan.isPhaseAligned),
-      timedDescription: bestPlan.route.timedDescription,
-      goals: bestPlan.goals,
-      primaryGoal: bestPlan.primaryGoal,
-      scoreBreakdown: bestPlan.scoreBreakdown,
-      score: bestPlan.score,
-      phase: phaseProgress.currentPhase,
-      timed: bestPlan.route.timed,
-      greedMode: bestPlan.route.greedMode,
-    });
-  }
-
-  for (const character of taintedGrid) {
-    if (!unlockedCharacters.has(character.name)) continue;
-    if (character.done >= character.total) continue;
-
-    let bestPlan: ScoredRoutePlan | null = null;
-    for (const route of accessibleRoutes) {
-      const gateGoals = buildGateGoals(route.id, gatesById, unclearedGates);
-      const evaluated = evaluateRouteForTaintedCharacter(
-        character,
-        route,
-        phaseAchievementIds,
-        gateGoals,
-        maxAchId,
+      for (const gate of gates) {
+        if (
+          gate.achievementIds.some((id) => id > maxId) ||
+          isGateCleared(gate, unlocked, stats) ||
+          !GATE_ROUTE_ALIGNMENT[gate.id]?.includes(route.id)
+        )
+          continue;
+        goals.push({
+          type: "gate-progress",
+          boss: gate.name,
+          achievementId: gate.achievementIds[0],
+          description: `Works toward: ${gate.description}; repeat until the requirement is met.`,
+        });
+      }
+      // Single-win mechanical gates can be earned now; repeated kill gates remain progress.
+      if (route.id === "corpse" && !unlocked.has(635))
+        goals.push({
+          type: "completion-mark",
+          boss: "Mother",
+          achievementId: 635,
+          itemName: "A Strange Door",
+          description: "Defeat Mother to open Home.",
+        });
+      if (!goals.length) continue;
+      goals.sort(
+        (a, b) =>
+          Number(a.isBundled ?? a.type !== "completion-mark") -
+            Number(b.isBundled ?? b.type !== "completion-mark") ||
+          unlockValue(b.achievementId ?? 0).powerValue -
+            unlockValue(a.achievementId ?? 0).powerValue ||
+          (a.achievementId ?? 0) - (b.achievementId ?? 0),
       );
-      if (!evaluated) continue;
-      if (!bestPlan || isBetterCharacterPlan(evaluated, bestPlan)) {
-        bestPlan = evaluated;
-      }
+      plans.push({
+        character: character.name,
+        isTainted: tainted,
+        route: route.name,
+        routeId: route.id,
+        routeWikiPath: route.wikiPath,
+        whyThisRun: routeInstructions(route, unlocked),
+        timedDescription: route.timedDescription,
+        goals,
+        primaryGoal: goals[0],
+        scoreBreakdown: {
+          markScore: 0,
+          gateBonus: 0,
+          phaseBonus: 0,
+          timedPenalty: 0,
+          bundledPenalty: 0,
+        },
+        score: 0,
+        phase: phase.currentPhase,
+        timed: route.timed,
+        greedMode: route.greedMode,
+      });
     }
-
-    if (!bestPlan) continue;
-    const markGoals = bestPlan.goals.filter((goal) => goal.type === "completion-mark");
-    const gateGoals = bestPlan.goals.filter((goal) => goal.type === "gate-progress");
-    plans.push({
-      character: character.name,
-      isTainted: true,
-      route: bestPlan.route.name,
-      routeId: bestPlan.route.id,
-      routeWikiPath: bestPlan.route.wikiPath,
-      whyThisRun: buildWhyThisRun(markGoals, gateGoals, bestPlan.isPhaseAligned),
-      timedDescription: bestPlan.route.timedDescription,
-      goals: bestPlan.goals,
-      primaryGoal: bestPlan.primaryGoal,
-      scoreBreakdown: bestPlan.scoreBreakdown,
-      score: bestPlan.score,
-      phase: phaseProgress.currentPhase,
-      timed: bestPlan.route.timed,
-      greedMode: bestPlan.route.greedMode,
-    });
   }
-
-  return plans.sort(sortPlans).slice(0, 5);
+  // No candidate selection here: all routes reach the shared final scorer.
+  return plans;
 }
-
-function clamp(n: number, min: number = 0, max: number = 1): number {
-  return Math.min(max, Math.max(min, n));
-}
-
-function computeRunScore(plan: RunPlan): { score: number; breakdown: ScoreBreakdown } {
-  const markGoals = plan.goals.filter((goal) => goal.type === "completion-mark");
-  const gateGoals = plan.goals.filter((goal) => goal.type === "gate-progress");
-  const achievementIds = plan.goals
-    .map((goal) => goal.achievementId)
-    .filter((goalId): goalId is number => goalId != null);
-  const impact = clamp(Math.min(markGoals.length, 4) / 4 + gateGoals.length * 0.2);
-  const readiness = clamp(1 - (plan.timed ? 0.3 : 0));
-  const qualityAverage = markGoals.length === 0
-    ? 0
-    : markGoals.reduce((sum, goal) => sum + (goal.itemQuality ? QUALITY_SCORE[goal.itemQuality] : 0), 0) / markGoals.length;
-  const phaseAlignment = plan.goals.some((goal) => goal.type === "phase-criterion") ? 1 : 0;
-  const communityMeta = readiness >= 0.4
-    ? achievementIds.reduce((best, id) => Math.max(best, COMMUNITY_META[id]?.weight ?? 0), 0)
-    : 0;
-
-  const impactPoints = impact * 35;
-  const readinessPoints = readiness * 25;
-  const itemQualityPoints = qualityAverage * 15;
-  const phasePoints = phaseAlignment * 15;
-  const communityPoints = communityMeta * 5;
-  const baseScore = Math.max(0, impactPoints + readinessPoints - EFFORT_PENALTY + itemQualityPoints + phasePoints + communityPoints);
-
-  return {
-    score: baseScore,
-    breakdown: {
-      impact: impactPoints,
-      readiness: readinessPoints,
-      effort: -EFFORT_PENALTY,
-      itemQuality: itemQualityPoints,
-      phaseAlignment: phasePoints,
-      communityMeta: communityPoints,
-      blockerDecay: 1,
-      diversityPenalty: 0,
-      baseScore,
-      finalScore: baseScore,
-    },
-  };
-}
-
-export function toActionItems(plans: RunPlan[]): ActionItem[] {
-  return plans.map((plan) => {
-    const { score, breakdown } = computeRunScore(plan);
-    const achievementIds = plan.goals
-      .map((goal) => goal.achievementId)
-      .filter((goalId): goalId is number => goalId != null);
-    return {
-      id: `run:${slugifyActionPart(plan.character)}:${plan.routeId}`,
+export function toActionItems(
+  plans: RunPlan[],
+  unlocked: Set<number> = new Set(),
+): ActionItem[] {
+  return plans.map((p) =>
+    scoreAction({
+      id: `run:${p.character
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "")}:${p.routeId}`,
       tier: "backlog",
-      score,
-      headline: `${plan.character} -> ${plan.route}`,
-      detail: plan.whyThisRun,
+      score: 0,
+      headline: `${p.character} → ${p.route}`,
+      detail: p.whyThisRun,
       category: "run",
       effort: "single-run",
       blocked: false,
-      achievementIds,
-      character: plan.character,
-      route: plan.route,
-      routeWikiPath: plan.routeWikiPath,
-      timed: plan.timed,
-      timedDescription: plan.timedDescription,
-      goals: plan.goals,
-      itemQuality: plan.primaryGoal.itemQuality,
-      itemName: plan.primaryGoal.itemName,
-      scoreBreakdown: breakdown,
-    };
-  });
+      achievementIds: [
+        ...new Set(
+          p.goals.flatMap((g) =>
+            g.achievementId == null ? [] : [g.achievementId],
+          ),
+        ),
+      ],
+      completedAchievementIds: p.goals
+        .filter((g) => g.type === "completion-mark" && !g.isBundled)
+        .map((g) => g.achievementId!),
+      progressAchievementIds: p.goals
+        .filter((g) => g.type === "gate-progress" || g.isBundled)
+        .map((g) => g.achievementId!),
+      character: p.character,
+      route: p.route,
+      routeWikiPath: p.routeWikiPath,
+      timed: p.timed,
+      timedDescription: p.timedDescription,
+      goals: p.goals,
+      burden: routeBurden(p.routeId, p.character, unlocked),
+    }),
+  );
 }

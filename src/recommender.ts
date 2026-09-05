@@ -21,7 +21,7 @@ import {
 } from "./data/characters";
 import { PROGRESSION_GATES, isGateCleared, SYSTEM_UNLOCK_MARKS } from "./data/progression";
 import { GREED_DONATION_MILESTONES, NORMAL_DONATION_MILESTONES } from "./data/donation";
-import { CHALLENGE_PREREQS } from "./data/challenge-prereqs";
+import { CHALLENGE_PREREQS, CHALLENGE_ACCESS_FLAGS } from "./data/challenge-prereqs";
 import { getChallengePriority, getChallengeTier } from "./data/challenge-tiers";
 import { GUARDRAILS } from "./data/guardrails";
 import { detectPhase, PHASE_DEFINITIONS } from "./data/phases";
@@ -528,7 +528,7 @@ export function evaluateCompletionMarks(
     collectToxicMarks(char.marks, char.name, toxicMarks);
 
     const remaining = char.total - char.done;
-    const effort: EffortLevel = char.done === 0 ? "grind" : remaining <= 2 ? "single-run" : "multi-run";
+    const effort: EffortLevel = "single-run";
     const detail = char.done === 0
       ? `${char.total} marks to earn — start with ${best.bossName} for ${best.itemName}`
       : remaining <= 4
@@ -554,11 +554,11 @@ export function evaluateCompletionMarks(
       actionCategory: "mark",
     }, {
       impact: clamp((remaining <= 4 ? 0.45 : 0.25) + Math.min(remaining, 4) * 0.08, 0.25, 1),
-      readiness: char.done === 0 ? 0.22 : clamp(0.35 + char.done / char.total * 0.5),
+      readiness: 0.75,
       effort,
       itemQuality: QUALITY_SCORE[best.quality],
       phaseAlignment: phaseAchievements.has(best.achievementId) ? 1 : 0,
-      communityMeta: communityMetaValue([best.achievementId], char.done === 0 ? 0.22 : 0.75),
+      communityMeta: communityMetaValue([best.achievementId], 0.75),
     }));
   }
 
@@ -576,7 +576,7 @@ export function evaluateCompletionMarks(
     );
 
     const remaining = char.total - char.done;
-    const effort: EffortLevel = char.done === 0 ? "grind" : remaining <= 2 ? "single-run" : "multi-run";
+    const effort: EffortLevel = "single-run";
     const detail = char.done === 0
       ? `${char.total} tainted marks to earn — start with ${best.bossName} for ${best.itemName}`
       : remaining <= 3
@@ -602,11 +602,11 @@ export function evaluateCompletionMarks(
       actionCategory: "mark",
     }, {
       impact: clamp((remaining <= 3 ? 0.5 : 0.32) + Math.min(remaining, 3) * 0.1, 0.3, 1),
-      readiness: char.done === 0 ? 0.2 : clamp(0.3 + char.done / char.total * 0.55),
+      readiness: 0.75,
       effort,
       itemQuality: QUALITY_SCORE[best.quality],
       phaseAlignment: phaseAchievements.has(best.achievementId) ? 1 : 0,
-      communityMeta: communityMetaValue([best.achievementId], char.done === 0 ? 0.2 : 0.7),
+      communityMeta: communityMetaValue([best.achievementId], 0.75),
     }));
   }
 
@@ -643,7 +643,6 @@ export function evaluateChallenges(
   maxAchId: number = TOTAL_ACHIEVEMENTS,
 ): LaneRecommendation[] {
   const recs: LaneRecommendation[] = [];
-  const unlockedRunes = Array.from(CLASSIC_RUNE_ACHIEVEMENTS.values()).filter((id) => unlocked.has(id)).length;
 
   for (const challenge of challenges.filter((candidate) => !candidate.completed)) {
     const prereq = CHALLENGE_PREREQS.find((candidate) => candidate.challengeId === challenge.id);
@@ -661,14 +660,18 @@ export function evaluateChallenges(
       }
     }
 
+    const accessFlag = CHALLENGE_ACCESS_FLAGS[challenge.id];
+    if (accessFlag && !unlocked.has(accessFlag) && !blockers.length) {
+      blockers.push({description:getAchievement(accessFlag).unlockDescription,achievementId:accessFlag,met:false}); depth++;
+    }
+    if (accessFlag && unlocked.has(accessFlag)) { blockers.length=0; depth=0; }
     const achievementId = findChallengeAchievementId(challenge.id, maxAchId);
+    if (achievementId == null || unlocked.has(achievementId)) continue;
     const tier = getChallengeTier(challenge.id);
     const priority = getChallengePriority(challenge.id);
     const baseImpact = tier === "high" ? 0.75 : tier === "medium" ? 0.48 : 0.24;
     const isRuneChallenge = CLASSIC_RUNE_ACHIEVEMENTS.has(challenge.id);
-    const reachesSixRunes = isRuneChallenge && unlockedRunes === 5;
-    const runeBonus = isRuneChallenge && unlockedRunes < 6 ? (reachesSixRunes ? 0.3 : 0.18) : 0;
-    const impact = clamp(baseImpact + runeBonus, 0.15, 1);
+    const impact = clamp(baseImpact, 0.15, 1); // Rune Shards are DLC-specific, not a general value bonus.
     const readiness = depth === 0 ? 0.78 : 0.2;
     const effort: EffortLevel = "single-run";
     const phaseAlignment = isRuneChallenge
@@ -679,11 +682,7 @@ export function evaluateChallenges(
     let whyNow = depth === 0
       ? (priority ? priority.reason : "Lower-priority challenge; save for completion cleanup")
       : `Blocked by: ${blockers.map((blocker) => blocker.description).join("; ")}`;
-    if (isRuneChallenge && unlockedRunes < 6) {
-      whyNow += reachesSixRunes
-        ? " — completing this gets you to 6 runes, which cleans up the rune pool"
-        : ` — ${unlockedRunes}/6 runes unlocked, getting to 6 cleans up the rune pool`;
-    }
+
 
     recs.push(createLaneRecommendation({
       lane: "challenge",

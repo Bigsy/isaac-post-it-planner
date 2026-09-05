@@ -4,7 +4,8 @@ import { getItemValue, QUALITY_SCORE } from "./item-values";
 import type { ItemQuality } from "./item-values";
 import { getAchievement } from "./achievements";
 
-const DEFAULT_QUALITY: ItemQuality = "b-tier";
+import { unlockValue } from "./unlock-values";
+const DEFAULT_QUALITY: ItemQuality = "unreviewed";
 
 /**
  * Sum of QUALITY_SCORE for remaining (not yet unlocked) marks for a character.
@@ -25,7 +26,7 @@ export function characterItemValue(
     if (achId == null || unlocked.has(achId)) continue;
     const entry = getItemValue(achId);
     const quality = entry?.quality ?? DEFAULT_QUALITY;
-    total += QUALITY_SCORE[quality];
+    total += unlockValue(achId).powerValue;
   }
   return total;
 }
@@ -55,7 +56,7 @@ export function bestRemainingMark(
 
     const entry = getItemValue(achId);
     const quality = entry?.quality ?? DEFAULT_QUALITY;
-    const score = QUALITY_SCORE[quality];
+    const score = unlockValue(achId).powerValue;
     const itemName = entry?.itemName ?? getAchievement(achId).name;
 
     if (score > bestScore) {

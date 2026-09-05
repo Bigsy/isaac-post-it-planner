@@ -85,12 +85,12 @@ describe("bestRemainingMark", () => {
     expect(result!.quality).toBe("s-tier");
   });
 
-  it("returns b-tier default for character with no cataloged marks", () => {
+  it("returns unreviewed for a reward without reviewed account value", () => {
     // Eden has mostly uncataloged marks → should return b-tier default
     const result = bestRemainingMark("Eden", new Set(), false);
     expect(result).not.toBeNull();
     // Eden's marks are mostly not in catalog, so best should be b-tier (or whatever is cataloged)
-    expect(["s-tier", "a-tier", "b-tier"]).toContain(result!.quality);
+    expect(result!.quality).toBe("unreviewed");
   });
 
   it("works for tainted characters", () => {

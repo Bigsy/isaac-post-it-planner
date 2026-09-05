@@ -85,9 +85,9 @@ describe("getItemValue", () => {
     expect(entry!.quality).toBe("s-tier");
   });
 
-  it("returns toxic entry", () => {
+  it("labels optional Missing No. as situational rather than an unavoidable unlock penalty", () => {
     const entry = getItemValue(105);
     expect(entry).toBeDefined();
-    expect(entry!.quality).toBe("toxic");
+    expect(entry!.quality).toBe("c-tier");
   });
 });

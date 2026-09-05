@@ -242,21 +242,11 @@ describe("integration: phaseProgress", () => {
 });
 
 describe("integration: recommendation ordering", () => {
-  it("user save prioritizes Polaroid and Greed setup ahead of challenge cleanup", () => {
-    const result = loadAndAnalyze("user-save.dat");
-    const actionable = result.actionItems.filter((item) => item.category !== "warning");
-    const indexOf = (target: string) => actionable.findIndex((item) => item.headline === target);
-
-    const polaroid = indexOf("Defeat Isaac 5 times");
-    const greedStart = actionable.findIndex(
-      (item) => item.category === "donation" && item.headline.includes("rotate characters"),
-    );
-    const waka = indexOf("Complete #17 Waka Waka — unlocks Death's Touch");
-
-    expect(polaroid).toBeGreaterThanOrEqual(0);
-    expect(greedStart).toBeGreaterThanOrEqual(0);
-    expect(waka).toBeGreaterThanOrEqual(0);
-    expect(polaroid).toBeLessThan(waka);
-    expect(greedStart).toBeLessThan(waka);
+  it("keeps useful challenges competitive and donation grinds separate", () => {
+    const result=loadAndAnalyze("user-save.dat");
+    expect(result.actionItems.some(a=>a.category==='challenge' && a.primaryAchievementId===103)).toBe(true);
+    expect(result.actionItems.some(a=>a.category==='donation' || a.category==='daily')).toBe(false);
+    expect(result.ongoingGoals.some(a=>a.category==='donation')).toBe(true);
+    expect(result.missingPower.some(t=>t.name==='The Polaroid')).toBe(true);
   });
 });

@@ -88,6 +88,11 @@ export interface BlockingDep {
 }
 
 export interface ScoreBreakdown {
+  primaryBenefit?: number;
+  setupBenefit?: number;
+  additionalBenefit?: number;
+  completionBenefit?: number;
+  burden?: number;
   impact: number;
   readiness: number;
   effort: number;
@@ -257,6 +262,16 @@ export interface ActionItem {
   blockedBy?: BlockingDep[];
   achievementIds: number[];
   whyFirst?: string;
+  selectionLabel?: string;
+  originalHeadline?: string;
+  originalDetail?: string;
+  primaryAchievementId?: number;
+  completedAchievementIds?: number[];
+  progressAchievementIds?: number[];
+  setupTarget?: string;
+  setupValue?: number;
+  burden?: number;
+  excluded?: boolean;
   character?: string;
   route?: string;
   routeWikiPath?: string;
@@ -311,6 +326,9 @@ export interface AnalysisResult {
   taintedCompletionGrid: TaintedCharacterProgress[];
   challenges: ChallengeInfo[];
   actionItems: ActionItem[];
+  ongoingGoals: ActionItem[];
+  missingPower: MissingPowerTarget[];
+  preferences: PlannerPreferences;
   suppressedItems?: SuppressedItem[];
   bestiary: BestiaryEntry[];
   bestiaryEncountered: number;
@@ -318,4 +336,22 @@ export interface AnalysisResult {
   missingUnlocks: MissingUnlocksResult;
   bossKillMilestones: BossKillMilestoneGroupStatus[];
   phaseProgress?: PhaseProgress;
+}
+
+export interface PlannerPreferences {
+  objective: "power" | "completion";
+  avoidedCharacters: string[];
+  noTimedRuns: boolean;
+}
+export interface MissingPowerTarget {
+  achievementId: number;
+  name: string;
+  benefit: string;
+  powerValue: number;
+  method: string;
+  status: "Available now" | "Needs setup" | "Long-term" | "Excluded by your preferences";
+  requirements: string[];
+  nextStep: string;
+  actionId?: string;
+  sourceUrls: string[];
 }

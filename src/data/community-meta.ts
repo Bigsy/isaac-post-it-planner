@@ -13,6 +13,6 @@ export const COMMUNITY_META: Record<number, CommunityMetaEntry> = {
   433: { achievementId: 433, weight: 0.9, note: "Rock Bottom" },
   470: { achievementId: 470, weight: 1.0, note: "Revelation" },
   491: { achievementId: 491, weight: 1.0, note: "Glitched Crown" },
-  499: { achievementId: 499, weight: 0.9, note: "Red Key" },
+  415: { achievementId: 415, weight: 0.9, note: "Red Key" },
   502: { achievementId: 502, weight: 0.9, note: "Twisted Pair" },
 };

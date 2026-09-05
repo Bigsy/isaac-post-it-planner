@@ -72,7 +72,7 @@ describe("buildRunPlans", () => {
     expect(runPlans.every((p) => p.character === "Isaac")).toBe(true);
   });
 
-  it("filters out single-goal runs (fallback behavior)", () => {
+  it("keeps single-goal routes for final scoring", () => {
     const baseGrid = [
       baseCharacter("Isaac", [{ boss: "Satan", done: false, achievementId: 10 }]),
     ];
@@ -89,10 +89,10 @@ describe("buildRunPlans", () => {
       637,
     );
 
-    expect(runPlans).toHaveLength(0);
+    expect(runPlans.some(p=>p.routeId==="sheol" && p.goals.length===1)).toBe(true);
   });
 
-  it("adds gate bonus and gate-progress goals for aligned routes", () => {
+  it("retains gate progress without a separate gate score", () => {
     const baseGrid = [
       baseCharacter("Isaac", [
         { boss: "Mom's Heart", done: false, achievementId: 10 },
@@ -112,7 +112,7 @@ describe("buildRunPlans", () => {
       637,
     );
 
-    expect(runPlans[0].scoreBreakdown.gateBonus).toBeGreaterThan(0);
+    expect(runPlans[0].scoreBreakdown.gateBonus).toBe(0);
     expect(runPlans[0].goals.some((g) => g.type === "gate-progress")).toBe(true);
   });
 
@@ -162,9 +162,9 @@ describe("buildRunPlans", () => {
       637,
     );
 
-    expect(runPlans[0].timed).toBe(true);
-    expect(runPlans[0].routeId).toBe("blue-womb");
-    expect(runPlans[0].timedDescription).toContain("30:00");
+    const timed = runPlans.find(p=>p.routeId === "blue-womb");
+    expect(timed?.timed).toBe(true);
+    expect(timed?.timedDescription).toContain("30:00");
   });
 
   it("suppresses inaccessible branch routes before sheol-cathedral gate", () => {
@@ -221,7 +221,7 @@ describe("buildRunPlans", () => {
     expect(bundledGoal?.description).toContain("Works toward");
   });
 
-  it("chooses the better Mega Satan branch variant", () => {
+  it("keeps both Mega Satan branches and shorter routes for final scoring", () => {
     const baseGrid = [
       baseCharacter("Isaac", [
         { boss: "Mom's Heart", done: false, achievementId: 10 },
@@ -244,10 +244,10 @@ describe("buildRunPlans", () => {
       637,
     );
 
-    expect(runPlans[0].routeId).toBe("mega-satan-ch");
+    expect(runPlans.map(p=>p.routeId)).toEqual(expect.arrayContaining(["mega-satan-ch", "mega-satan-dr", "cathedral", "sheol"]));
   });
 
-  it("adds phase-criterion goals from aligned gate goals", () => {
+  it("does not count editorial phase criteria as additional rewards", () => {
     const baseGrid = [
       baseCharacter("Isaac", [
         { boss: "Mom's Heart", done: false, achievementId: 10 },
@@ -269,7 +269,7 @@ describe("buildRunPlans", () => {
 
     expect(runPlans.length).toBeGreaterThan(0);
     expect(
-      runPlans[0].goals.some((g) => g.type === "phase-criterion" && g.achievementId === 57),
-    ).toBe(true);
+      runPlans.some(p=>p.goals.some((g) => g.type === "phase-criterion")),
+    ).toBe(false);
   });
 });

@@ -1,9 +1,8 @@
 /**
  * Challenge prerequisites — which achievements must be unlocked to attempt each challenge.
  *
- * Only Repentance challenges (#37–45) have meaningful prerequisites.
- * Earlier challenges are gated by basic progression (Mom's Heart kills, etc.)
- * which the progression gate system handles.
+ * Challenge unlock flags are authoritative across DLC rule changes.
+ * Explicit prerequisite descriptions below help explain later challenges.
  */
 
 export interface ChallengePrereq {
@@ -59,3 +58,11 @@ export const CHALLENGE_PREREQS: ChallengePrereq[] = [
     requiredAchievements: [483], // T.Eden
   },
 ];
+
+/** Save flags prove challenge access without guessing version-specific unlock rules. */
+export const CHALLENGE_ACCESS_FLAGS: Record<number, number> = {
+  4:157,5:158,6:159,7:160,8:161,9:162,10:163,11:164,19:165,20:166,
+  21:265,22:266,23:267,24:268,25:269,26:270,27:271,28:272,29:273,30:274,
+  31:277,32:278,33:279,34:280,35:281,
+  37:508,38:509,39:510,40:511,41:512,42:513,43:514,44:515,45:516,
+};

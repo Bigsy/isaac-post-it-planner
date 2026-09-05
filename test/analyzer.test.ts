@@ -926,7 +926,7 @@ describe("phase-aware recommendations", () => {
     }
   });
 
-  it("s-tier marks score higher than c-tier for character unlocks", () => {
+  it("unreviewed downstream character rewards do not receive an invented quality advantage", () => {
     // Azazel (79) has S-tier Maw of the Void (ach 186)
     // Samson (67) has C-tier Blood Penny (ach 55)
     // Both unlocked, so we compare their completion mark recs
@@ -940,10 +940,10 @@ describe("phase-aware recommendations", () => {
     expect(eveRec).toBeDefined();
     // Azazel has S-tier marks (Maw of the Void, Devil's Crown), Eve has C-tier (Eve's Mascara)
     // So Azazel should score higher due to item quality bonus
-    expect(azazelRec!.score).toBeGreaterThan(eveRec!.score);
+    expect(azazelRec!.score).toBe(eveRec!.score);
   });
 
-  it("toxic marks generate guardrail warnings", () => {
+  it("optional situational pickups do not generate blanket pool warnings", () => {
     // Missing No. is ach 105 (Lazarus vs Boss Rush, index 5)
     // Lazarus marks: [173, 116, 117, 118, 119, 105, 187, 213, 291, 456, 457, 200, 305]
     // Need Lazarus to have ≤4 remaining and done > 0, with 105 still missing
@@ -953,9 +953,7 @@ describe("phase-aware recommendations", () => {
     const taintedGrid = analyzeTaintedCompletionMarks(unlocked);
     const recs = evaluateCompletionMarks(unlocked, baseGrid, taintedGrid);
     const toxicWarnings = recs.filter((r) => r.isToxicWarning && r.lane === "guardrail");
-    expect(toxicWarnings.length).toBeGreaterThan(0);
-    expect(toxicWarnings[0].itemQuality).toBe("toxic");
-    expect(toxicWarnings[0].itemName).toBeTruthy();
+    expect(toxicWarnings).toHaveLength(0);
   });
 
   it("boss priority ordering is set on completion mark recs", () => {
@@ -1006,7 +1004,7 @@ describe("phase-aware recommendations", () => {
     expect(isaacRecs[0].whyNow).toContain("marks left");
   });
 
-  it("mid-progress characters collect toxic warnings", () => {
+  it("partial completion does not turn optional pickups into toxic warnings", () => {
     // Lazarus marks: [173, 116, 117, 118, 119, 105, 187, 213, 291, 456, 457, 200, 305]
     // 105 = Missing No. (toxic). Give Lazarus 2 done marks (11 remaining — in-progress)
     const done = [173, 116]; // 2 done, 11 remaining
@@ -1015,8 +1013,6 @@ describe("phase-aware recommendations", () => {
     const taintedGrid = analyzeTaintedCompletionMarks(unlocked);
     const recs = evaluateCompletionMarks(unlocked, baseGrid, taintedGrid);
     const toxicWarnings = recs.filter((r) => r.isToxicWarning && r.lane === "guardrail");
-    expect(toxicWarnings.length).toBeGreaterThan(0);
-    const missingNo = toxicWarnings.find((r) => r.itemName === "Missing No.");
-    expect(missingNo).toBeDefined();
+    expect(toxicWarnings).toHaveLength(0);
   });
 });

@@ -36,6 +36,7 @@ export function dlcAtLeast(current: DlcLevel, required: DlcLevel): boolean {
   return DLC_ORDER.indexOf(current) >= DLC_ORDER.indexOf(required);
 }
 
+// Editorial campaign milestones, not route prerequisites or power-score bonuses.
 export const PHASE_DEFINITIONS: PhaseDefinition[] = [
   {
     id: "phase-1-foundations",
@@ -56,9 +57,9 @@ export const PHASE_DEFINITIONS: PhaseDefinition[] = [
     minDlc: "afterbirth",
     completionCriteria: [
       { type: "achievement", achievementId: 234, description: "Blue Womb access" },
-      { type: "achievement", achievementId: 320, description: "Hush / Void access" },
+      { type: "achievement", achievementId: 320, description: "Hush / Void access", requiredDlc: "afterbirth-plus" },
       { type: "achievement", achievementId: 407, description: "Alt path (Repentance)", requiredDlc: "repentance" },
-      { type: "achievement", achievementId: 58, description: "Beat Mega Satan" },
+      { type: "achievement", achievementId: 58, description: "Collect both Angel Key Pieces" },
     ],
   },
   {

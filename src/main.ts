@@ -1,7 +1,65 @@
 import { parseSaveFile } from "./parser";
 import { analyze } from "./analyzer";
 import { renderResults, showError, clearError } from "./ui";
-import { detectSavePathPlatform, getOrderedSavePathGroups, type SavePathPlatform } from "./save-paths";
+import {
+  detectSavePathPlatform,
+  getOrderedSavePathGroups,
+  type SavePathPlatform,
+} from "./save-paths";
+
+import type { SaveData, PlannerPreferences } from "./types";
+import { DEFAULT_PREFERENCES } from "./planner-scoring";
+let currentSave: SaveData | undefined;
+let preferences: PlannerPreferences = {
+  ...DEFAULT_PREFERENCES,
+  avoidedCharacters: [],
+};
+function refreshAnalysis(): void {
+  if (!currentSave) return;
+  const result = analyze(currentSave, {
+    debug: new URLSearchParams(location.search).has("debug"),
+    preferences,
+  });
+  renderResults(result);
+  let controls = document.getElementById("planner-preferences");
+  if (!controls) {
+    controls = document.createElement("section");
+    controls.id = "planner-preferences";
+    document.getElementById("tier-1")?.before(controls);
+  }
+  const characters = [
+    ...result.completionGrid,
+    ...result.taintedCompletionGrid,
+  ].map((c) => c.name);
+  controls.innerHTML = `<h3>Choose your next run</h3><label>Objective <select id="planner-objective"><option value="power" ${preferences.objective === "power" ? "selected" : ""}>Power unlocks</option><option value="completion" ${preferences.objective === "completion" ? "selected" : ""}>Completion</option></select></label>
+    <label><input type="checkbox" id="planner-no-timed" ${preferences.noTimedRuns ? "checked" : ""}> Avoid timed runs</label>
+    <details><summary>Avoid characters this session (${preferences.avoidedCharacters.length})</summary><div class="character-preferences">${characters.map((c, i) => `<label><input id="avoid-character-${i}" type="checkbox" data-avoid-character="${escapeHtmlAttr(c)}" ${preferences.avoidedCharacters.includes(c) ? "checked" : ""}> ${escapeHtmlAttr(c)}</label>`).join("")}</div></details>
+    <button type="button" id="planner-reset">Reset preferences</button>`;
+  controls.onchange = (event) => {
+    const target = event.target as HTMLInputElement;
+    if (target.id === "planner-objective")
+      preferences.objective = target.value as PlannerPreferences["objective"];
+    if (target.id === "planner-no-timed")
+      preferences.noTimedRuns = target.checked;
+    if (target.dataset.avoidCharacter)
+      preferences.avoidedCharacters = target.checked
+        ? [...preferences.avoidedCharacters, target.dataset.avoidCharacter]
+        : preferences.avoidedCharacters.filter(
+            (c) => c !== target.dataset.avoidCharacter,
+          );
+    const open = controls!.querySelector("details")!.open;
+    refreshAnalysis();
+    if (open)
+      document.querySelector<HTMLDetailsElement>(
+        "#planner-preferences details",
+      )!.open = true;
+    document.getElementById(target.id)?.focus({ preventScroll: true });
+  };
+  document.getElementById("planner-reset")!.onclick = () => {
+    preferences = { ...DEFAULT_PREFERENCES, avoidedCharacters: [] };
+    refreshAnalysis();
+  };
+}
 
 function setLoadingState(loading: boolean): void {
   const dropZone = document.getElementById("drop-zone");
@@ -15,7 +73,6 @@ function setLoadingState(loading: boolean): void {
 
 function handleFile(file: File): void {
   clearError();
-  const debug = new URLSearchParams(window.location.search).has("debug");
 
   if (!file.name.endsWith(".dat")) {
     showError("Please select an Isaac save file (.dat)");
@@ -27,9 +84,8 @@ function handleFile(file: File): void {
   const reader = new FileReader();
   reader.onload = () => {
     try {
-      const saveData = parseSaveFile(reader.result as ArrayBuffer);
-      const result = analyze(saveData, { debug });
-      renderResults(result);
+      currentSave = parseSaveFile(reader.result as ArrayBuffer);
+      refreshAnalysis();
     } catch (e) {
       showError(e instanceof Error ? e.message : "Failed to parse save file");
     } finally {
@@ -88,8 +144,13 @@ function renderPathHelper(): void {
   const container = document.getElementById("path-helper");
   if (!container) return;
 
-  const nav = navigator as Navigator & { userAgentData?: { platform?: string } };
-  const platform = detectSavePathPlatform(nav.userAgentData?.platform ?? navigator.platform, navigator.userAgent);
+  const nav = navigator as Navigator & {
+    userAgentData?: { platform?: string };
+  };
+  const platform = detectSavePathPlatform(
+    nav.userAgentData?.platform ?? navigator.platform,
+    navigator.userAgent,
+  );
   const groups = getOrderedSavePathGroups(platform);
 
   const groupHtml = groups
@@ -138,7 +199,9 @@ function renderPathHelper(): void {
   `;
 
   container.addEventListener("click", (e) => {
-    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>(".path-copy-btn");
+    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>(
+      ".path-copy-btn",
+    );
     if (!btn) return;
     e.stopPropagation();
     const path = btn.dataset.path!;

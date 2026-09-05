@@ -9,10 +9,10 @@ Drop your save file in the browser. Nothing is uploaded; everything runs locally
 ## What it shows
 
 - **DLC detection** — auto-detects supported save versions from Rebirth through Repentance+ and filters all content to your DLC level
-- **Play Next** — one unified ranked queue across boss routes, progression goals, character unlocks, marks, challenges, donations, and daily challenges:
-  - `Do This` for the best current actions
-  - `Rotate Into` for 2-5 strong alternatives after a light diversity pass
-  - `When You're Ready` and `Backlog` so lower-priority work stays visible instead of disappearing
+- **Play Next** — achievable reward-first choices: Best power unlock, Easier useful run, and Progress toward a major unlock when suitable distinct options exist. Additional alternatives and lower-priority targets remain expandable.
+- **Powerful unlocks you're missing** — a separate reviewed catalog with benefits, unlock methods, prerequisites, and Available now / Needs setup / Long-term / Excluded by your preferences status.
+- **Session preferences** — Power unlocks (default) or Completion, avoided characters, and no timed runs. Changes reanalyse the loaded save immediately; Reset clears the controls.
+- **Ongoing goals** — daily reminders and donation grinds stay visible outside the next-run competition.
 - **Summary** — overall completion plus a compact featured-pick card that points at the #1 action without duplicating the full recommendation card
 - **Completion grid** — character x boss table with colour-coded marks and wiki-linked headers; separate grids for base (13 bosses) and tainted (7 bundled categories) characters
 - **Character unlocks** — base and tainted, with how-to-unlock for locked ones
@@ -27,26 +27,28 @@ Drop your save file in the browser. Nothing is uploaded; everything runs locally
 
 ## How recommendations work
 
-The planner scores runs, gates, marks, challenges, donations, and dailies on one shared scale. The main inputs are:
+The default objective is to make future runs stronger. The planner generates all feasible character routes, including one-reward Beast and Mother runs, before scoring. It checks character access, challenge unlock flags, DLC, mechanical route gates and Greedier access. Timed routes retain their conditions. A shorter route can win without requiring an extra Mega Satan detour.
 
-- `impact` — how much future progression or item value the action opens up
-- `readiness` — how close the save is to doing it now
-- `effort` — a penalty for long grinds versus single-run wins
-- `item quality` — boosts for strong unlocks and penalties for toxic pool pollution
-- `phase alignment` — a single progression-phase bonus instead of phase-based sectioning
-- `community meta` — a small curated nudge for widely valued unlocks like D6, Glitched Crown, Revelation, and Red Key
+One final heuristic scores every playable action:
 
-Two extra planner-specific rules matter:
+- Up to 60 points for the strongest reward actually earned.
+- Up to 20 for useful prerequisite progress toward a named unlock; long compound goals get only a small contribution.
+- Up to 10 for other unique useful rewards, with diminishing returns.
+- Up to 5 for incidental useful marks.
+- A route/character burden penalty of up to 25.
 
-- Daily challenges are surfaced intentionally because real time, not save state, is the blocker.
-- Early Greed setup is treated as a real progression action, not buried as passive donation cleanup.
+Completion mode instead raises unique completion credit and reduces the dominance of primary power benefit. Co-op babies contribute completion value but no solo power. Empty post-its and death counts are not estimates of skill: a one-win target stays a one-run target. Editorial phases and community/challenge bonuses are not added to final power scores.
+
+Equivalent completed and partial outcomes are deduplicated separately. Preferences are hard exclusions from next-run selection, while excluded valuable targets remain in the missing-power list. Special recommendation slots are left empty when no useful distinct candidate fits; the easier option must have lower estimated burden. Selection does not alter scores. Add `?debug` to inspect the actual score contributions and suppression reasons.
 
 ## Assumptions and limits
 
-- Save files expose unlocked state, but not every form of partial progress.
-- Daily challenge counts and streak state are not readable from the save, so daily recommendations use honest generic wording.
-- Community advice is a light overlay, not a hardcoded progression script.
-- Item-quality and toxic classifications are planner heuristics, not objective truth.
+- Curated account benefit is distinct from in-game strength and the existing S/A/B/C item badges. Unreviewed rewards use a conservative fallback and are labelled explicitly. See the [reward audit](docs/reward-audit.md) and source links in the catalog.
+- Save files expose aggregate unlocks, not every partial requirement. Tainted bundles and Godhead/Mega Mush/Death Certificate are described honestly as progress or long-term targets.
+- Daily counts and streaks are not readable; reminders do not claim current progress. Donation amounts do not guarantee that the next machine will accept enough coins.
+- Mega Satan requires in-run setup; pre-It-Lives branch access is conditional. The planner does not predict success probabilities, room RNG, or exact item encounter rates.
+- The catalog does not cover every strong reward yet. The complete missing-unlock browser remains available for everything outside the reviewed catalog.
+- Preferences live only in memory for the session. Saves are parsed locally and never modified or uploaded. Repentance patch variants share the current parser's DLC category and 637-achievement catalog.
 
 ## Quick start
 
@@ -74,6 +76,9 @@ make dev      # esbuild serve with watch
 make test     # vitest
 make build    # production bundle
 make clean    # remove built files
+npx tsc --noEmit # type-check production code
+npx tsx scripts/diagnose.ts # compare all repository fixtures
+npx tsx scripts/diagnose.ts /path/to/save.dat # read-only calibration
 ```
 
 ## Tech

@@ -68,14 +68,13 @@ describe("fixture edge cases", () => {
     expect(actionable.filter((item) => item.tier === 2)).toHaveLength(0);
   });
 
-  it("late-game clustered fixture keeps multiple cleanup actions in play", () => {
+  it("late-game clustered fixture does not redo rewards already unlocked", () => {
     const result = loadAndAnalyze("fixture-lategame-clustered.dat");
     const actionable = result.actionItems.filter((item) => item.category !== "warning");
 
     expect(result.unlockedCount).toBeGreaterThan(500);
-    expect(actionable.length).toBeGreaterThan(5);
-    expect(actionable.filter((item) => item.tier === 1).length).toBeGreaterThan(0);
-    expect(actionable.filter((item) => item.tier === 2).length).toBeGreaterThan(0);
+    expect(actionable).toHaveLength(0);
+    expect(result.missingPower).toHaveLength(0);
   });
 
   it("late-game nearly-there fixture collapses to a short final checklist", () => {
@@ -90,7 +89,7 @@ describe("fixture edge cases", () => {
 });
 
 describe("tier assignment", () => {
-  it("puts three items into tier 1 when scores stay in a tight cluster", () => {
+  it("does not fill special slots merely because scores are clustered", () => {
     const items = assignTiers([
       makeActionItem({ id: "a", headline: "A", score: 80, category: "gate" }),
       makeActionItem({ id: "b", headline: "B", score: 60, category: "mark" }),
@@ -98,7 +97,7 @@ describe("tier assignment", () => {
       makeActionItem({ id: "d", headline: "D", score: 28, category: "donation" }),
     ]);
 
-    expect(items.filter((item) => item.tier === 1)).toHaveLength(3);
+    expect(items.filter((item) => item.tier === 1)).toHaveLength(1);
   });
 
   it("keeps tier 1 to a single item when scores fall off sharply", () => {
@@ -148,7 +147,7 @@ describe("dedup and tie-breaks", () => {
     expect(result.suppressedItems).toHaveLength(0);
   });
 
-  it("applies the diversity pass so tier 2 is not dominated by the same route", () => {
+  it("preserves final scores when choosing useful alternatives", () => {
     const items = assignTiers([
       makeActionItem({ id: "top", headline: "Top", score: 90, category: "run", route: "Chest", character: "Isaac" }),
       makeActionItem({ id: "a", headline: "A", score: 60, category: "run", route: "Chest", character: "Magdalene" }),
@@ -157,10 +156,11 @@ describe("dedup and tie-breaks", () => {
     ]);
 
     const tierTwo = items.filter((item) => item.tier === 2);
-    expect(tierTwo[0]?.route).toBe("Void");
+    expect(tierTwo[0]?.score).toBe(60);
+    expect(tierTwo.some(a=>a.route==="Void")).toBe(true);
   });
 
-  it("stays deterministic inside the 2-point tie-break window", () => {
+  it("uses exact deterministic score ordering", () => {
     const items = [
       makeActionItem({ id: "blocked", headline: "Blocked", score: 50, category: "gate", blocked: true }),
       makeActionItem({ id: "grind", headline: "Grind", score: 50, category: "run", effort: "grind" }),
@@ -180,7 +180,7 @@ describe("dedup and tie-breaks", () => {
 });
 
 describe("scoring guardrails", () => {
-  it("does not let a low-readiness community-meta mark outrank a cleaner progression gate", () => {
+  it("treats a mark target as one run independently of its empty post-it", () => {
     const unlocked = new Set<number>([405, 635]);
     const gate = evaluateProgressionGates(unlocked, emptyCounters(), 637, "phase-1-foundations")
       .find((rec) => rec.target === "Defeat Mom");
@@ -191,10 +191,10 @@ describe("scoring guardrails", () => {
 
     expect(gate).toBeDefined();
     expect(jacob).toBeDefined();
-    expect(gate!.score).toBeGreaterThan(jacob!.score);
+    expect(jacob!.estimatedEffort).toBe("single-run");
   });
 
-  it("boosts rune challenges before 6 runes, and gives the 6th rune the biggest bump", () => {
+  it("does not add a DLC-agnostic six-rune score bonus", () => {
     const challenges = analyzeChallenges(new Array(46).fill(0));
     const fourRunes = new Set<number>([89, 90, 91, 92]);
     const fiveRunes = new Set<number>([89, 90, 91, 92, 93]);
@@ -210,8 +210,8 @@ describe("scoring guardrails", () => {
     expect(berkanoAtFour).toBeDefined();
     expect(berkanoAtFive).toBeDefined();
     expect(berkanoAtSix).toBeDefined();
-    expect(berkanoAtFive!.score).toBeGreaterThan(berkanoAtFour!.score);
-    expect(berkanoAtFive!.score).toBeGreaterThan(berkanoAtSix!.score);
+    expect(berkanoAtFive!.score).toBe(berkanoAtFour!.score);
+    expect(berkanoAtFive!.score).toBe(berkanoAtSix!.score);
   });
 
   it("emits daily actions with honest generic wording when those unlocks are still locked", () => {
