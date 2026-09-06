@@ -234,7 +234,9 @@ function init(): void {
   });
 
   // Click to open picker
-  dropZone.addEventListener("click", () => fileInput.click());
+  dropZone.addEventListener("click", (event) => {
+    if (event.target !== fileInput) fileInput.click();
+  });
 
   // Drag and drop
   dropZone.addEventListener("dragover", (e) => {

@@ -67,17 +67,41 @@
     </div>
     <img src="img/ui/logo.png" alt="The Binding of Isaac" class="title-logo">
     <h1>Post-it Planner</h1>
-    <p class="subtitle">Drop your save file to see what to focus on next <span id="dlc-badge"></span></p>
+    <p class="subtitle">Your save. Your missing marks. Your next unlock. <span id="dlc-badge"></span></p>
   </header>
 
   <main>
     <section id="upload-section">
+      <div class="landing-intro">
+        <h2>Make your next run count.</h2>
+        <p>Not sure who to play or what to unlock next? Load your save and turn that unfinished post-it into a plan.</p>
+        <div class="landing-benefits">
+          <article>
+            <span class="benefit-number" aria-hidden="true">01</span>
+            <h3>Know what to play next</h3>
+            <p>Get character and boss recommendations based on where you are in the game.</p>
+          </article>
+          <article>
+            <span class="benefit-number" aria-hidden="true">02</span>
+            <h3>Find unlocks worth chasing</h3>
+            <p>See which rewards to prioritise, with item quality ratings and challenges worth tackling.</p>
+          </article>
+          <article>
+            <span class="benefit-number" aria-hidden="true">03</span>
+            <h3>See what's still missing</h3>
+            <p>Check your completion marks, characters and achievements in one place.</p>
+          </article>
+        </div>
+      </div>
       <div id="drop-zone">
-        <div class="drop-icon">&#128193;</div>
+        <div class="drop-icon" aria-hidden="true">&#128193;</div>
         <p>Drag &amp; drop your Isaac save <code>.dat</code> file here</p>
-        <p class="hint">or click to browse</p>
+        <button id="browse-save" class="browse-save" type="button">Find my next unlock <span aria-hidden="true">&rarr;</span></button>
+        <p class="hint">Choose a save file to get your personalised plan</p>
         <input type="file" id="file-input" accept=".dat" hidden>
       </div>
+      <p class="landing-reassurance">Your save stays on your device. Nothing is uploaded or changed.</p>
+      <p class="landing-compatibility">From your first Mom kill to the road to Dead God.<br>Supports Rebirth, Afterbirth, Afterbirth+, Repentance and Repentance+.</p>
       <div id="path-helper" class="path-helper"></div>
     </section>
 

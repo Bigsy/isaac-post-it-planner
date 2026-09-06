@@ -134,6 +134,70 @@ main {
 }
 
 /* Upload zone */
+.landing-intro {
+  max-width: 960px;
+  margin: 0 auto 1.75rem;
+}
+.landing-intro h2 {
+  font-family: "Upheaval", system-ui, sans-serif;
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
+  color: var(--brass);
+  border: 0;
+  padding: 0;
+  margin: 0 0 0.5rem;
+}
+.landing-intro > p {
+  max-width: 59ch;
+  margin: 0 auto;
+  color: var(--ink);
+}
+.landing-benefits {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1.75rem;
+  text-align: left;
+}
+.landing-benefits article {
+  padding: 1.15rem;
+  border: 1px solid var(--panel-border);
+  border-top: 2px solid rgba(200,168,78,0.5);
+  border-radius: var(--radius-md);
+  background: var(--card-bg);
+}
+.benefit-number {
+  font-family: "Upheaval", system-ui, sans-serif;
+  color: var(--brass);
+  font-size: 1.25rem;
+}
+.landing-benefits h3 { font-size: 1rem; margin: 0.3rem 0; }
+.landing-benefits p { font-size: 0.9rem; color: var(--pencil); }
+.browse-save {
+  display: inline-block;
+  margin: 1rem 0 0.6rem;
+  padding: 0.75rem 1.3rem;
+  border: 1px solid var(--brass);
+  border-radius: var(--radius-sm);
+  background: var(--brass);
+  color: var(--basement);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.browse-save:hover { background: #dfc371; }
+.browse-save:focus-visible { outline: 3px solid var(--ink); outline-offset: 4px; }
+.landing-reassurance { margin-top: 1rem; font-size: 0.85rem; }
+.landing-compatibility { margin-top: 0.4rem; color: var(--pencil); font-size: 0.8rem; }
+#upload-section.collapsed .landing-intro,
+#upload-section.collapsed .landing-reassurance,
+#upload-section.collapsed .landing-compatibility,
+#upload-section.collapsed .browse-save { display: none; }
+@media (max-width: 640px) {
+  .landing-benefits { grid-template-columns: 1fr; gap: 0.65rem; }
+  .landing-benefits article { padding: 0.85rem 1rem; }
+  .benefit-number { float: left; margin-right: 0.75rem; }
+  .landing-benefits p { clear: both; }
+}
 #upload-section {
   text-align: center;
   padding: 2rem 0;
