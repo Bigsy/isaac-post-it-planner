@@ -991,7 +991,7 @@ function renderMissingUnlocks(missingUnlocks: MissingUnlocksResult): void {
     if (!isComplete) {
       entriesHtml = `<div class="unlock-entries">`;
       for (const ach of cat.missing) {
-        const url = achievementWikiUrl(ach.name);
+        const url = achievementWikiUrl(ach.name, ach.id);
         const nameHtml = wikiLink(url, ach.name);
         entriesHtml += `<div class="unlock-entry"><span class="unlock-name">${nameHtml}</span><span class="unlock-how">${ach.unlockDescription}</span></div>`;
       }

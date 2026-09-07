@@ -175,7 +175,9 @@ const ACHIEVEMENT_NAME_OVERRIDES: Record<string, string> = {
   "Soul of\u00a0???": "Soul_of_%3F%3F%3F",
 };
 
-export function achievementWikiUrl(name: string): string | null {
+export function achievementWikiUrl(name: string, id?: number): string | null {
+  // Reversed tarot achievements share titles with ordinary tarot cards.
+  if (id !== undefined && id >= 524 && id <= 544) return wikiUrl("Cards");
   if (ACHIEVEMENT_SKIP.has(name)) return null;
   if (name in ACHIEVEMENT_NAME_OVERRIDES) {
     return WIKI_BASE + ACHIEVEMENT_NAME_OVERRIDES[name];

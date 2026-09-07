@@ -230,7 +230,10 @@ function init(): void {
 
   // File picker
   fileInput.addEventListener("change", () => {
-    if (fileInput.files?.[0]) handleFile(fileInput.files[0]);
+    const file = fileInput.files?.[0];
+    // Allow selecting the same save again after the game updates it.
+    fileInput.value = "";
+    if (file) handleFile(file);
   });
 
   // Click to open picker

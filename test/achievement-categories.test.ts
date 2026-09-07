@@ -77,6 +77,16 @@ describe("categorizeAchievement", () => {
     expect(categorizeAchievement(634)).toBe("cards-runes"); // Soul of Jacob and Esau
   });
 
+  it("keeps consumable cards and runes separate from similarly named items", () => {
+    for (const id of [97, 98, 99, 100, 120, 225, 233, 293, 309, 361, 362, 363, 602, 610]) {
+      expect(categorizeAchievement(id), getAchievement(id).name).toBe("cards-runes");
+    }
+    for (const id of [121, 218, 565]) {
+      expect(categorizeAchievement(id), getAchievement(id).name).toBe("items");
+    }
+    expect(categorizeAchievement(582)).not.toBe("cards-runes"); // Member Card
+  });
+
   it("categorizes stages and bosses", () => {
     expect(categorizeAchievement(4)).toBe("stages-bosses");   // The Womb
     expect(categorizeAchievement(86)).toBe("stages-bosses");  // The Cellar
@@ -137,6 +147,22 @@ describe("category count sanity checks", () => {
 });
 
 describe("analyzeMissingUnlocks", () => {
+  it("distinguishes reversed tarot rewards from ordinary cards", () => {
+    const cards = analyzeMissingUnlocks(new Set()).categories.find(c => c.category === "cards-runes")!;
+    expect(cards.missing.find(a => a.id === 524)?.name).toBe("The Fool? (reversed)");
+    expect(cards.missing.find(a => a.id === 542)?.name).toBe("The Sun? and The Moon? (reversed)");
+    expect(cards.missing.filter(a => a.id >= 524 && a.id <= 544).every(a => a.name.includes("(reversed)"))).toBe(true);
+  });
+
+  it("omits unlocked runes, cards, items and trinkets using their achievement flags", () => {
+    const unlocked = new Set([89, 90, 91, 92, 93, 94, 96, 97, 98, 52, 121, 524]);
+    const result = analyzeMissingUnlocks(unlocked);
+    const missing = result.categories.flatMap(c => c.missing).map(a => a.id);
+    for (const id of unlocked) expect(missing).not.toContain(id);
+    expect(missing).toContain(95); // Berkano is still locked.
+    expect(missing).toContain(525); // Reversed Magician is still locked.
+    expect(result.totalMissing).toBe(TOTAL_ACHIEVEMENTS - unlocked.size);
+  });
   it("empty save = 637 missing", () => {
     const result = analyzeMissingUnlocks(new Set(), TOTAL_ACHIEVEMENTS);
     expect(result.totalMissing).toBe(TOTAL_ACHIEVEMENTS);

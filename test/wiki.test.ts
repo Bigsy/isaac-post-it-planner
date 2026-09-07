@@ -6,6 +6,7 @@ import {
   challengeWikiUrl,
   rewardWikiUrl,
   wikiLink,
+  achievementWikiUrl,
   REWARD_SKIP,
 } from "../src/data/wiki";
 import {
@@ -22,6 +23,12 @@ import {
 import { CHALLENGE_NAMES, CHALLENGE_REWARDS } from "../src/data/challenges";
 
 const WIKI_BASE = "https://bindingofisaacrebirth.wiki.gg/wiki/";
+
+it("links reversed tarot unlocks to the card reference instead of ordinary card pages", () => {
+  expect(achievementWikiUrl("The Fool? (reversed)", 524)).toBe(WIKI_BASE + "Cards");
+  expect(achievementWikiUrl("The Sun? and The Moon? (reversed)", 542)).toBe(WIKI_BASE + "Cards");
+  expect(achievementWikiUrl("Blank Card", 121)).toBe(WIKI_BASE + "Blank_Card");
+});
 
 describe("wikiUrl", () => {
   it("replaces spaces with underscores", () => {

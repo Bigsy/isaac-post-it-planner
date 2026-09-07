@@ -125,6 +125,12 @@ const COOP_BABY_IDS = new Set([
   439,  // Illusion Baby
 ]);
 
+// Consumables whose achievement descriptions call them "a new item".
+// Use IDs so collectible items such as Blank Card and Rune Bag stay in items.
+const CARD_RUNE_IDS = new Set([
+  97, 98, 99, 100, 120, 225, 233, 293, 309, 361, 362, 363, 602, 610,
+]);
+
 /** Tarot card names for matching within the 524-544 range */
 const TAROT_CARD_NAMES = new Set([
   "The Fool", "The Magician", "The High Priestess", "The Empress",
@@ -140,6 +146,7 @@ export function categorizeAchievement(id: number): AchievementCategory {
   if (MILESTONE_IDS.has(id)) return "milestones";
   if (CHARACTER_IDS.has(id)) return "characters";
   if (COOP_BABY_IDS.has(id)) return "co-op-babies";
+  if (CARD_RUNE_IDS.has(id)) return "cards-runes";
 
   // 2. ID ranges for tainted characters
   if (id >= 474 && id <= 490) return "characters";
@@ -210,7 +217,10 @@ export function analyzeMissingUnlocks(
       const ach = getAchievement(id);
       data.missing.push({
         id,
-        name: ach.name,
+        // These achievement titles omit the question marks used by the cards.
+        name: id >= 524 && id <= 544
+          ? (id === 542 ? "The Sun? and The Moon? (reversed)" : `${ach.name}? (reversed)`)
+          : ach.name,
         unlockDescription: ach.unlockDescription,
         category,
       });
